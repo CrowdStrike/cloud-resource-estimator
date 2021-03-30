@@ -8,11 +8,12 @@ Author: Joshua Hiller
 Creation date: 03.23.21
 """
 
-import json
-import subprocess
+# import json
+# import subprocess
 # Import the needed Azure credential and management objects from the Azure SDK.
 from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.subscription import SubscriptionClient
 
 # Dictionary of billable resource types and their generic name
 billable = {
@@ -27,7 +28,8 @@ billable = {
 credential = AzureCliCredential()
 
 # Retrieve subscription ID from environment variable.
-subscription_id = json.loads(subprocess.getoutput("az account show --query id"))
+# subscription_id = json.loads(subprocess.getoutput("az account show --query id"))
+subscription_id = SubscriptionClient(credential)
 
 # Obtain the management object for resources.
 resource_client = ResourceManagementClient(credential, subscription_id)
