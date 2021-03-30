@@ -31,17 +31,17 @@ audit_GCP(){
 echo "Determining cloud provider"
 if type aws >/dev/null 2>&1; then
   echo "This is AWS"
-  audit_AWS()
+  audit_AWS
 fi
 
 if type az >/dev/null 2>&1; then
   echo "This is Azure"
-  audit_Azure()
+  audit_Azure
 fi
 
 if type gcloud >/dev/null 2>&1; then
   echo "This is GCP"
-  audit_GCP()
+  audit_GCP
 fi
 
 # END
