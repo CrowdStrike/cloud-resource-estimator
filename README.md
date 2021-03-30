@@ -29,4 +29,5 @@ These scripts are provided to the community, for free, under the Unlicense licen
 carry no formal support, express or implied.
 
 ## Questions?
-Please submit an issue or pull request and we will address the issue as quickly as possible.
+Please review our [Code of Conduct](CODE_OF_CONDUCT.md) and then submit an issue or pull request.
+We will address the issue as quickly as possible.
