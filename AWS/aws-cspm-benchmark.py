@@ -8,6 +8,7 @@ Author: Joshua Hiller
 Creation date: 03.23.21
 """
 import boto3
+import ast
 from tabulate import tabulate
 
 
@@ -18,7 +19,7 @@ def process(region: str, service: list) -> dict:
     # TODO: Implement paging for large resultsets
     _ = boto3.client(service[0], region_name=region)
     delim = "=" if service[3] else ""
-    return eval(f"_.{service[2]}({service[3]}{delim}{service[4]})")
+    return ast.literal_eval(f"_.{service[2]}({service[3]}{delim}{service[4]})")
 
 
 aws_account = {}
