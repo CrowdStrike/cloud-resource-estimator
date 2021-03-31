@@ -1,9 +1,9 @@
 """
 aws-cspm-benchmark.py
- 
+
 Assists with provisioning calculations by retrieving a count of
 all billable resources attached to an AWS account.
- 
+
 Author: Joshua Hiller
 Creation date: 03.23.21
 """
@@ -31,7 +31,6 @@ include = ["all"]
 checks = [
     ["ec2", "Reservations", "describe_instances", "MaxResults", "1000", "ec2"],
     ["rds", "DBInstances", "describe_db_instances", "MaxRecords", "100", "rds"],
-#    ["iam", "Roles", "list_roles", "MaxItems", "1000", "iam"],
     ["redshift", "Clusters", "describe_clusters", "MaxRecords", "100", "redshift"],
     ["elbv2", "LoadBalancers", "describe_load_balancers", "PageSize", "400", "lb"],
     ["ec2", "NatGateways", "describe_nat_gateways", "MaxResults", "1000", "natg"],
@@ -43,7 +42,6 @@ headers = {
             "region": "Region",
             "ec2": "EC2",
             "rds": "RDS",
-#            "iam": "IAM",
             "redshift": "Redshift",
             "lb": "ALB/ELB",
             "natg": "NAT",
@@ -54,7 +52,6 @@ totals = {
             "region": "TOTAL",
             "ec2": 0,
             "rds": 0,
-#            "iam": 0,
             "redshift": 0,
             "lb": 0,
             "natg": 0,
@@ -95,3 +92,16 @@ data.append(totals)
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
 
+#     .wwwwwwww.
+#   .w"  "WW"  "w.
+#  ."   /\  /\   ".
+# |\     o  o     /|
+#  \|  ___\/___  |/
+#  / \ \_v__v_/ / \
+# / | \________/ | \
+# >  \   WWWW   /  <
+# \   \   ""   /   /
+#  \   \      /   /
+#  The Count says...
+#
+#  That's ONE server, TWO servers  ... AH AH AH!
