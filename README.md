@@ -39,7 +39,7 @@ and GCP all support Cloud Shell environments and provide documentation for using
 [AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) <BR/>
 
 #### AWS Cloud Shell direct links
-| Location | Link |
+| Region | Link |
 | :--- | :--- |
 | us-east-1 | **[Virginia, United States](https://us-east-1.console.aws.amazon.com/cloudshell/home?region=us-east-1)** |
 | us-east-2 | **[Ohio, United States](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2)** |
