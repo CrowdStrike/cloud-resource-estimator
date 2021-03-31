@@ -36,13 +36,13 @@ and GCP all support Cloud Shell environments and provide documentation for using
 
 ### AWS Cloud Shell
 [AWS Cloud Shell overview](https://aws.amazon.com/cloudshell/) ||
-[AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) || 
+[AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) <BR/>
 [AWS Cloud Shell direct link (Ohio)](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2) ||
 [AWS Cloud Shell direct link (Ireland)](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)
 
 ### Azure Cloud Shell
 [Azure Cloud Shell overview](https://docs.microsoft.com/en-us/azure/cloud-shell/overview) ||
-[Azure Cloud Shell Quickstart](https://docs.microsoft.com/en-us/azure/cloud-shell/quickstart)
+[Azure Cloud Shell Quickstart](https://docs.microsoft.com/en-us/azure/cloud-shell/quickstart) ||
 [Azure Cloud Shell direct link](https://shell.azure.com)
 
 ### Google Cloud Shell
