@@ -37,9 +37,14 @@ and GCP all support Cloud Shell environments and provide documentation for using
 ### AWS Cloud Shell
 [AWS Cloud Shell overview](https://aws.amazon.com/cloudshell/) ||
 [AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) <BR/>
-**[AWS Cloud Shell direct link (Ohio)](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2)** ||
-**[AWS Cloud Shell direct link (Ireland)](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** ||
-**[AWS Cloud Shell direct link (Tokyo)](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)**
+##### AWS Cloud Shell direct links
+| Location | Link |
+| :--- | :--- |
+| us-east-1 | **[Virginia, United States](https://us-east-1.console.aws.amazon.com/cloudshell/home?region=us-east-1)** |
+| us-east-2 | **[Ohio, United States](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2)** |
+| us-west-2 | **[Oregon, United States](https://us-west-2.console.aws.amazon.com/cloudshell/home?region=us-west-2)** |
+| eu-west-1 | **[Ireland](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** |
+| ap-northeast-1 | **[Tokyo, Japan](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)** |
 
 ### Azure Cloud Shell
 [Azure Cloud Shell overview](https://docs.microsoft.com/en-us/azure/cloud-shell/overview) ||
