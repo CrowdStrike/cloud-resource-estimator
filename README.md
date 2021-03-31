@@ -3,9 +3,14 @@
 # CrowdStrike Horizon Benchmark Utilities
 These utilities have been developed to assist you in calculating the overall size of a cloud deployment.
 
++ [Running an audit](#running-an-audit)
++ [Notes](#notes)
++ [Cloud Shell documentation](#more-documentation-regarding-cloud-shell)
++ [License and Questions](#license)
+
 ## Running an audit
 + Connect to Cloud Shell within the provider in question
-    - If asked, select "BASH" for your environment.
+    - If asked, select `BASH` for your environment.
 + Execute the following command: 
 ```shell
 curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
