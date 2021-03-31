@@ -4,7 +4,7 @@ azure-cspm-benchmark.py
 Assists with provisioning calculations by retrieving a count
 of all billable resources attached to an Azure subscription.
 
-Author: Joshua Hiller
+Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
 
