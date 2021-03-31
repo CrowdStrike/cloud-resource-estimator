@@ -9,7 +9,7 @@ These utilities have been developed to assist you in calculating the overall siz
 + [License and Questions](#license)
 
 ## Running an audit
-+ Connect to Cloud Shell within the provider in question
++ Login to your cloud provider and then connect to Cloud Shell.
     - If asked, select `BASH` for your environment.
 + Execute the following command: 
 ```shell
