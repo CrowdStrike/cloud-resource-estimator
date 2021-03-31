@@ -37,19 +37,19 @@ and GCP all support Cloud Shell environments and provide documentation for using
 ### AWS Cloud Shell
 [AWS Cloud Shell overview](https://aws.amazon.com/cloudshell/) ||
 [AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) <BR/>
-[AWS Cloud Shell direct link (Ohio)](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2) ||
-[AWS Cloud Shell direct link (Ireland)](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1) ||
-[AWS Cloud Shell direct link (Tokyo)](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)
+**[AWS Cloud Shell direct link (Ohio)](https://us-east-2.console.aws.amazon.com/cloudshell/home?region=us-east-2)** ||
+**[AWS Cloud Shell direct link (Ireland)](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** ||
+**[AWS Cloud Shell direct link (Tokyo)](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)**
 
 ### Azure Cloud Shell
 [Azure Cloud Shell overview](https://docs.microsoft.com/en-us/azure/cloud-shell/overview) ||
 [Azure Cloud Shell Quickstart](https://docs.microsoft.com/en-us/azure/cloud-shell/quickstart) ||
-[Azure Cloud Shell direct link](https://shell.azure.com)
+**[Azure Cloud Shell direct link](https://shell.azure.com)**
 
 ### Google Cloud Shell
 [Google Cloud Shell overview](https://cloud.google.com/shell) ||
 [Google Cloud Shell documentation](https://cloud.google.com/shell/docs) || 
-[Google Cloud Shell direct link](https://shell.cloud.google.com/)
+**[Google Cloud Shell direct link](https://shell.cloud.google.com/)**
 
 ## License
 These scripts are provided to the community, for free, under the Unlicense license. As such, these scripts
