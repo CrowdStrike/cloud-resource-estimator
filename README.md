@@ -5,7 +5,7 @@ These utilities have been developed to assist you in calculating the overall siz
 
 + [Running an audit](#running-an-audit)
 + [Notes](#notes)
-+ [Cloud Shell documentation](#more-documentation-regarding-cloud-shell)
++ [Cloud Shell documentation](#cloud-shell-documentation)
 + [License and Questions](#license)
 
 ## Running an audit
@@ -30,19 +30,19 @@ Results will be calculated and displayed directly to your terminal.
 - Audit scripts are removed after the process completes.
 - As part of the audit, necessary dependencies are installed based upon cloud provider.
 
-## More documentation regarding Cloud Shell
+## Cloud Shell documentation
 Cloud Shell is an online development and operations environment accessible anywhere with your browser. AWS, Azure
 and GCP all support Cloud Shell environments and provide documentation for using these environments.
 
-### Accessing AWS Cloud Shell
-[AWS Cloud shell overview](https://aws.amazon.com/cloudshell/) ||
+### AWS Cloud Shell
+[AWS Cloud Shell overview](https://aws.amazon.com/cloudshell/) ||
 [AWS Cloud Shell documentation](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html)
 
-### Accessing Azure Cloud Shell
+### Azure Cloud Shell
 [Azure Cloud Shell overview](https://docs.microsoft.com/en-us/azure/cloud-shell/overview) ||
 [Azure Cloud Shell Quickstart](https://docs.microsoft.com/en-us/azure/cloud-shell/quickstart)
 
-### Accessing Google Cloud Shell
+### Google Cloud Shell
 [Google Cloud Shell overview](https://cloud.google.com/shell) ||
 [Google Cloud Shell documentation](https://cloud.google.com/shell/docs)
 
