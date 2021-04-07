@@ -8,7 +8,7 @@
 
 audit_AWS(){
   # AWS audit
-  curl -o aws_count.py https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/AWS/aws-cspm-benchmark.py
+  curl -o aws_count.py https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/AWS/aws_cspm_benchmark.py
   pip3 install --user tabulate
   python3 aws_count.py
   rm aws_count.py
@@ -16,7 +16,7 @@ audit_AWS(){
 
 audit_Azure(){
   # Azure audit
-  curl -o azure_count.py https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/Azure/azure-cspm-benchmark.py
+  curl -o azure_count.py https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/Azure/azure_cspm_benchmark.py
   python3 -m pip install azure-mgmt-resource azure-identity  # azure-mgmt-subscription
   python3 azure_count.py
   rm azure_count.py

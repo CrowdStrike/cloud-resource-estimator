@@ -11,9 +11,9 @@ Creation date: 03.23.21
 import json
 import subprocess
 # Import the needed Azure credential and management objects from the Azure SDK.
-from azure.identity import AzureCliCredential
-from azure.mgmt.resource import ResourceManagementClient
-#from azure.mgmt.subscription import SubscriptionClient
+from azure.identity import AzureCliCredential               # pylint: disable=E0401
+from azure.mgmt.resource import ResourceManagementClient    # pylint: disable=E0401
+# from azure.mgmt.subscription import SubscriptionClient
 
 # Dictionary of billable resource types and their generic name
 billable = {
@@ -38,24 +38,24 @@ resource_client = ResourceManagementClient(credential, subscription_id)
 group_list = resource_client.resource_groups.list()
 
 # Show the groups in formatted output
-main_column_width = 40
+MAIN_COLUMN_WIDTH = 40
 
 # Output the column headers
-print("\nResource Group".ljust(main_column_width) + " Location")
+print("\nResource Group".ljust(MAIN_COLUMN_WIDTH) + " Location")
 
 # Grand total of all resources discovered
-grand_total_resources = 0
+GRAND_TOTAL_RESOURCES = 0
 
 # Loop through every resource group identified
 for group in list(group_list):
     # Running total of all resources found within the resource group
-    total_resources = 0
+    TOTAL_RESOURCES = 0
     # Results dictionary
     results = {}
     # Output the resource group name and location
-    print("-" * (main_column_width * 2))
-    print(f"{group.name:<{main_column_width}}{group.location}")
-    print("-" * (main_column_width * 2))
+    print("-" * (MAIN_COLUMN_WIDTH * 2))
+    print(f"{group.name:<{MAIN_COLUMN_WIDTH}}{group.location}")
+    print("-" * (MAIN_COLUMN_WIDTH * 2))
 
     # Retrieve the list of resources in the group.
     resource_list = resource_client.resources.list_by_resource_group(group.name)
@@ -64,8 +64,8 @@ for group in list(group_list):
     # for each billable resource type.
     for resource in list(resource_list):
         if resource.type in billable:
-            total_resources += 1
-            grand_total_resources += 1
+            TOTAL_RESOURCES += 1
+            GRAND_TOTAL_RESOURCES += 1
             if billable[resource.type] in results:
                 results[billable[resource.type]] += 1
             else:
@@ -76,10 +76,10 @@ for group in list(group_list):
         print("{} : {}".format(resource_type, total))
 
     # Print the totals for this resource group
-    print("\nTotal billable resources: {} \n\n".format(total_resources))
+    print("\nTotal billable resources: {} \n\n".format(TOTAL_RESOURCES))
 
 # Print the grand totals for all resources discovered
-print("\nTotal billable resources discovered across all resource groups: {}\n\n".format(grand_total_resources))
+print("\nTotal billable resources discovered across all resource groups: {}\n\n".format(GRAND_TOTAL_RESOURCES))
 
 #             ,ggg,                   gg                   ,ggg,
 #            d8P""8b                ,d88b,                d8""Y8b
