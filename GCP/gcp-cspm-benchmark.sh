@@ -81,3 +81,17 @@ do
     total_count=$(( $total_count + $count ))
     echo -e "\n    Total resource count: $total_count \n\n"
 done
+
+#                        That's a lotta stuff...
+#                        /
+#                 \||/
+#                 |  @___oo
+#       /\  /\   / (__,,,,|
+#      ) /^\) ^\/ _)
+#      )   /^\/   _)
+#      )   _ /  / _)
+#  /\  )/\/ ||  | )_)
+# <  >      |(,,) )__)
+#  ||      /    \)___)\
+#  | \____(      )___) )___
+#   \______(_______;;; __;;;
