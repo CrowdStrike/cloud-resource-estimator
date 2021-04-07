@@ -7,19 +7,19 @@ all billable resources attached to an AWS account.
 Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
-import boto3
 import ast
-from tabulate import tabulate
+import boto3                    # pylint: disable=E0401
+from tabulate import tabulate   # pylint: disable=E0401
 
 
-def process(region: str, service: list) -> dict:
+def process(reg: str, svc: list) -> dict:
     """ Query a particular AWS service and return the
         resulting output back as a JSON dictionary (sorta).
     """
-    # TODO: Implement paging for large resultsets
-    _ = boto3.client(service[0], region_name=region)
-    delim = "=" if service[3] else ""
-    return ast.literal_eval(f"_.{service[2]}({service[3]}{delim}{service[4]})")
+    # TODO: Implement paging for large resultsets       pylint: disable=W0511
+    _ = boto3.client(svc[0], region_name=reg)
+    delim = "=" if svc[3] else ""
+    return ast.literal_eval(f"_.{svc[2]}({svc[3]}{delim}{svc[4]})")
 
 
 aws_account = {}
