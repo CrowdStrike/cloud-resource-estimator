@@ -25,6 +25,9 @@ audit_Azure(){
 audit_GCP(){
   # GCP audit
   echo "Not yet implemented"
+  curl -o gcp_count.sh https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/GCP/gcp-cspm-benchmark.sh
+  ./gcp_count.sh
+  rm gcp_count.sh
 }
 
 # MAIN ROUTINE
