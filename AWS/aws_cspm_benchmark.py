@@ -7,7 +7,6 @@ all billable resources attached to an AWS account.
 Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
-import ast
 import boto3                    # pylint: disable=E0401
 from tabulate import tabulate   # pylint: disable=E0401
 
@@ -19,7 +18,11 @@ def process(reg: str, svc: list) -> dict:
     # TODO: Implement paging for large resultsets       pylint: disable=W0511
     _ = boto3.client(svc[0], region_name=reg)
     delim = "=" if svc[3] else ""
-    return ast.literal_eval(f"_.{svc[2]}({svc[3]}{delim}{svc[4]})")
+    return eval("_.{}({}{}{})".format(svc[2],           # nosec   pylint: disable=W0123
+                                      svc[3],
+                                      delim,
+                                      svc[4]
+                                      ))
 
 
 aws_account = {}
