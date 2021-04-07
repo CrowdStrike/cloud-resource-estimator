@@ -9,7 +9,7 @@ Creation date: 03.23.21
 """
 
 import json
-import subprocess
+import subprocess   # nosec
 # Import the needed Azure credential and management objects from the Azure SDK.
 from azure.identity import AzureCliCredential               # pylint: disable=E0401
 from azure.mgmt.resource import ResourceManagementClient    # pylint: disable=E0401
