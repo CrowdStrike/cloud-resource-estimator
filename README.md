@@ -26,7 +26,7 @@ Results will be calculated and displayed directly to your terminal.
         ```shell
         pip install -r requirements.txt
         ```
-- Downloaded audit scripts are developed using Python 3.
+- Downloaded audit scripts are developed using Python 3 and BASH.
 - Audit scripts are removed after the process completes.
 - As part of the audit, necessary dependencies are installed based upon cloud provider.
 
