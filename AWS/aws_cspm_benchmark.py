@@ -37,7 +37,7 @@ checks = [
     ["redshift", "Clusters", "describe_clusters", "MaxRecords", "100", "redshift"],
     ["elbv2", "LoadBalancers", "describe_load_balancers", "PageSize", "400", "lb"],
     ["ec2", "NatGateways", "describe_nat_gateways", "MaxResults", "1000", "natg"],
-    ["ecs", "clusters", "describe_clusters", "", "", "ecs"],
+    ["ecs", "clusterArns", "list_clusters", "", "", "ecs"],
     ["eks", "clusters", "list_clusters", "", "", "eks"]
 ]
 data = []
@@ -61,6 +61,7 @@ totals = {
             "ecs": 0,
             "eks": 0
 }
+GRAND_TOTAL_RESOURCES = 0
 ec2 = boto3.client("ec2")
 response = ec2.describe_regions()
 for region in response["Regions"]:
@@ -91,9 +92,15 @@ for region in response["Regions"]:
             data.append(row)
 # Add in our grand totals to the display table
 data.append(totals)
+# Create GRAND_TOTAL_RESOURCE count for quoting
+for x in totals:
+    if totals[x] != 'TOTAL':
+        GRAND_TOTAL_RESOURCES += totals[x]
 
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
+# Output GRAND_TOTAL_RESOURCE
+print("\nTotal billable resources discovered across all regions: {}\n\n".format(GRAND_TOTAL_RESOURCES))
 
 #     .wwwwwwww.
 #   .w"  "WW"  "w.
