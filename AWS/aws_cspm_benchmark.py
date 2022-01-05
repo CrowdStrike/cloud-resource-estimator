@@ -18,11 +18,10 @@ def process(reg: str, svc: list) -> dict:
     # TODO: Implement paging for large resultsets       pylint: disable=W0511
     _ = boto3.client(svc[0], region_name=reg)
     delim = "=" if svc[3] else ""
-    return eval("_.{}({}{}{})".format(svc[2],           # nosec   pylint: disable=W0123
-                                      svc[3],
-                                      delim,
-                                      svc[4]
-                                      ))
+    ec2_filter = ""
+    if svc[3] == "describe_instances":
+        ec2_filter = "Filters=[{'Name': 'instance-state-name', 'Values': ['terminated']}]"
+    return eval(f"_.{svc[2]}({svc[3]}{delim}{svc[4]}{ec2_filter})")  # nosec   pylint: disable=W0123
 
 
 aws_account = {}
@@ -93,14 +92,14 @@ for region in response["Regions"]:
 # Add in our grand totals to the display table
 data.append(totals)
 # Create GRAND_TOTAL_RESOURCE count for quoting
-for x in totals:
-    if totals[x] != 'TOTAL':
-        GRAND_TOTAL_RESOURCES += totals[x]
+for key, val in totals.items():
+    if val != 'TOTAL':
+        GRAND_TOTAL_RESOURCES += val
 
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
 # Output GRAND_TOTAL_RESOURCE
-print("\nTotal billable resources discovered across all regions: {}\n\n".format(GRAND_TOTAL_RESOURCES))
+print(f"\nTotal billable resources discovered across all regions: {GRAND_TOTAL_RESOURCES}\n\n")
 
 #     .wwwwwwww.
 #   .w"  "WW"  "w.
