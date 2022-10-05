@@ -7,6 +7,7 @@ all billable resources attached to an AWS account.
 Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
+import csv
 import boto3                    # pylint: disable=E0401
 from tabulate import tabulate   # pylint: disable=E0401
 
@@ -100,6 +101,14 @@ for key, val in totals.items():
 print(tabulate(data, headers=headers, tablefmt="grid"))
 # Output GRAND_TOTAL_RESOURCE
 print(f"\nTotal billable resources discovered across all regions: {GRAND_TOTAL_RESOURCES}\n\n")
+
+with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
+    csv_writer.writeheader()
+    csv_writer.writerows(data)
+
+print("\nCSV file stored in: ./benchmark.csv\n\n")
+
 
 #     .wwwwwwww.
 #   .w"  "WW"  "w.
