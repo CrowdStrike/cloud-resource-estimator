@@ -24,7 +24,8 @@ audit_Azure(){
 
 audit_GCP(){
   # GCP audit
-  curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/GCP/gcp-cspm-benchmark.sh | /bin/bash
+  echo "NOT YET SUPPORTED"
+
 }
 
 # MAIN ROUTINE
