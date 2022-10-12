@@ -4,8 +4,8 @@
 #
 #    pip-compile requirements.in
 #
-azure-identity>=1.5.0           # via -r requirements.in
-azure-mgmt-resource>=16.0.0     # via -r requirements.in
+azure-identity
+azure-mgmt-resource
 azure-mgmt-containerservice
 azure-mgmt-compute
 msrestazure
