@@ -8,99 +8,130 @@ Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
 
-import json
-import subprocess   # nosec
-# Import the needed Azure credential and management objects from the Azure SDK.
-from azure.identity import AzureCliCredential               # pylint: disable=E0401
-from azure.mgmt.resource import ResourceManagementClient    # pylint: disable=E0401
-# from azure.mgmt.subscription import SubscriptionClient
+import csv
+import logging
 
-# Dictionary of billable resource types and their generic name
-billable = {
-    "Microsoft.Compute/virtualMachines": "Virtual Machines",
-    "Microsoft.Network/applicationGateways": "Load Balancers",
-    "Microsoft.Network/loadBalancers": "Load Balancers",
-    "Microsoft.Sql/servers/databases": "SQL Server and databases",
-    "Microsoft.Sql/servers": "SQL Server and databases",
-}
+from functools import cached_property, lru_cache
+from azure.identity import AzureCliCredential
+from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
+from azure.mgmt.containerservice import ContainerServiceClient
+from azure.mgmt.compute import ComputeManagementClient
+import msrestazure.tools
 
-# Acquire a credential object using CLI-based authentication.
-credential = AzureCliCredential()
 
-# Retrieve subscription ID from environment variable.
-subscription_id = json.loads(subprocess.getoutput("az account show --query id"))
-# subscription_id = SubscriptionClient(credential)
+class AzureHandle:
+    def __init__(self):
+        # Acquire a credential object using CLI-based authentication.
+        self.creds = AzureCliCredential()
 
-# Obtain the management object for resources.
-resource_client = ResourceManagementClient(credential, subscription_id)
+    @cached_property
+    def subscriptions(self):
+        return list(self.subscription_client.subscriptions.list())
 
-# Retrieve the list of resource groups
-group_list = resource_client.resource_groups.list()
+    @property
+    def tenants(self):
+        return list(self.subscription_client.tenants.list())
 
-# Show the groups in formatted output
-MAIN_COLUMN_WIDTH = 40
+    def aks_resources(self, subscription_id):
+        client = self.resource_client(subscription_id)
+        return client.resources.list(filter="resourceType eq 'microsoft.containerservice/managedclusters'")
 
-# Output the column headers
-print("\nResource Group".ljust(MAIN_COLUMN_WIDTH) + " Location")
+    def vmss_resources(self, subscription_id):
+        client = self.resource_client(subscription_id)
+        return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachineScaleSets'")
 
-# Grand total of all resources discovered
-GRAND_TOTAL_RESOURCES = 0
+    def vms_resources(self, subscription_id):
+        client = self.resource_client(subscription_id)
+        return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachines'")
 
-# Loop through every resource group identified
-for group in list(group_list):
-    # Running total of all resources found within the resource group
-    TOTAL_RESOURCES = 0
-    # Results dictionary
-    results = {}
-    # Output the resource group name and location
-    print("-" * (MAIN_COLUMN_WIDTH * 2))
-    print(f"{group.name:<{MAIN_COLUMN_WIDTH}}{group.location}")
-    print("-" * (MAIN_COLUMN_WIDTH * 2))
+    def managed_clusters(self, subscription_id):
+        return self.container_client(subscription_id).managed_clusters.list()
 
-    # Retrieve the list of resources in the group.
-    resource_list = resource_client.resources.list_by_resource_group(group.name)
+    def rhos_clusters(self, subscription_id):
+        return self.container_client(subscription_id).open_shift_managed_clusters.list()
 
-    # Loop through the resources discovered and display the totals
-    # for each billable resource type.
-    for resource in list(resource_list):
-        if resource.type in billable:
-            TOTAL_RESOURCES += 1
-            GRAND_TOTAL_RESOURCES += 1
-            if billable[resource.type] in results:
-                results[billable[resource.type]] += 1
-            else:
-                results[billable[resource.type]] = 1
+    def container_vmss(self, aks_resource):
+        parsed_id = msrestazure.tools.parse_resource_id(aks_resource.id)
+        client = self.container_client(parsed_id['subscription'])
+        return client.agent_pools.list(resource_group_name=parsed_id['resource_group'],
+                                       resource_name=parsed_id['resource_name'])
 
-    # Print the resource totals for all resources in this group
-    for resource_type, total in sorted(results.items()):
-        print("{} : {}".format(resource_type, total))
+    def vms_inside_vmss(self, vmss_resource):
+        parsed_id = msrestazure.tools.parse_resource_id(vmss_resource.id)
+        client = ComputeManagementClient(self.creds, parsed_id['subscription'])
+        return client.virtual_machine_scale_set_vms.list(resource_group_name=parsed_id['resource_group'],
+                                                         virtual_machine_scale_set_name=vmss_resource.name)
 
-    # Print the totals for this resource group
-    print("\nTotal billable resources: {} \n\n".format(TOTAL_RESOURCES))
+    @lru_cache
+    def container_client(self, subscription_id):
+        return ContainerServiceClient(self.creds, subscription_id)
 
-# Print the grand totals for all resources discovered
-print("\nTotal billable resources discovered across all resource groups: {}\n\n".format(GRAND_TOTAL_RESOURCES))
+    @lru_cache
+    def resource_client(self, subscription_id):
+        return ResourceManagementClient(self.creds, subscription_id)
 
-#             ,ggg,                   gg                   ,ggg,
-#            d8P""8b                ,d88b,                d8""Y8b
-#            Y8b,__,,aadd88888bbaaa,888888,aaadd88888bbaa,,__,d8P
-#             "88888888888888888888I888888I88888888888888888888"
-#             /|\`""YY8888888PP""""`888888'""""YY8888888PP""'/|\
-#            / | \                  `WWWW'                  / | \
-#           /  |  \                 ,dMMb,                 /  |  \
-#          /   |   \                I8888I                /   |   \
-#         /    |    \               `Y88P'               /    |    \
-#        /     |     \               `YP'               /     |     \
-#       /      |      \               88               /      |      \
-#      /       |       \             i88i             /       |       \
-#     /        |        \            8888            /        |        \
-# "Y88888888888888888888888P"       i8888i       "Y88888888888888888888888P"
-#   `""Y888888888888888P""'        ,888888,        `""Y888888888888888P""'
-#                                  I888888I
-#                                  Y888888P
-#                                  `Y8888P'
-#                                   `WWWW'
-#                                    dMMb
-#                                 _,ad8888ba,_
-#                     __,,aaaadd888888888888888bbaaaa,,__
-#                   d8888888888888888888888888888888888888b
+    @cached_property
+    def subscription_client(self):
+        return SubscriptionClient(self.creds)
+
+
+LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
+log = logging.getLogger('azure')
+log.setLevel(LOG_LEVEL)
+ch = logging.StreamHandler()
+ch.setLevel(LOG_LEVEL)
+formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s', '%Y-%m-%d %H:%M:%S')
+ch.setFormatter(formatter)
+log.addHandler(ch)
+
+for mod in ['azure.identity._internal.decorators', 'azure.core.pipeline.policies.http_logging_policy']:
+    logging.getLogger(mod).setLevel(logging.WARNING)
+
+
+data = []
+totals = {'tenant_id': 'totals', 'subscription_id': 'totals', 'aks_nodes': 0, 'vms': 0}
+az = AzureHandle()
+
+log.info("You have access to %d subscription(s) within %s tenant(s)", len(az.subscriptions), len(az.tenants))
+for subscription in az.subscriptions:
+    row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
+           'aks_nodes': 0, 'vms': 0}
+    log.info("Exploring Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
+
+    vmss_list = list(az.vmss_resources(subscription.subscription_id))
+
+    # (1) Process AKS
+    for aks in az.aks_resources(subscription.subscription_id):
+        for node_pool in az.container_vmss(aks):
+            log.debug("Identified node pool: '%s' within AKS: '%s' with %d node(s)",
+                      node_pool.name, aks.name, node_pool.count)
+            row['aks_nodes'] += node_pool.count
+
+    # (2) Process VMSS
+    for vmss in az.vmss_resources(subscription.subscription_id):
+        if 'aks-managed-createOperationID' in vmss.tags:  # AKS resources already accounted for above
+            continue
+
+        vm_count = sum(1 for vm in az.vms_inside_vmss(vmss))
+        log.debug("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
+        row['vms'] += vm_count
+
+    # (3) Process VMs
+    vm_count = sum((1 for vm in az.vms_resources(subscription.subscription_id)))
+    log.debug('Identified %d vm resource(s) outside of Scale Sets', vm_count)
+    row['vms'] += vm_count
+    data.append(row)
+
+    totals['vms'] += row['vms']
+    totals['aks_nodes'] += row['aks_nodes']
+
+data.append(totals)
+
+headers = ['tenant_id', 'subscription_id', 'aks_nodes', 'vms']
+with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
+    csv_writer.writeheader()
+    csv_writer.writerows(data)
+
+log.info("CSV summary has been exported to ./benchmark.csv file")
