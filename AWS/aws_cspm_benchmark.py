@@ -8,8 +8,8 @@ Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
 import csv
-import boto3                    # pylint: disable=E0401
-from tabulate import tabulate   # pylint: disable=E0401
+import boto3
+from tabulate import tabulate
 
 
 def process(reg: str, svc: list) -> dict:
