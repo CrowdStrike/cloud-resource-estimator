@@ -33,7 +33,7 @@ if type aws >/dev/null 2>&1; then
     audit "AWS"
 fi
 if type az >/dev/null 2>&1; then
-    audit Azure
+    audit "Azure"
 fi
 
 if type gcloud >/dev/null 2>&1; then
