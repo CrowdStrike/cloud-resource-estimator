@@ -10,6 +10,7 @@ Creation date: 03.23.21
 import csv
 import boto3
 from tabulate import tabulate
+from functools import cached_property
 
 
 def process(reg: str, svc: list) -> dict:
@@ -57,10 +58,22 @@ totals = {
             "ecs": 0,
             "eks": 0
 }
+
+
+class AWSHandle:
+    @property
+    def regions(self):
+        return self.ec2.describe_regions()['Regions']
+
+    @cached_property
+    def ec2(self):
+        return boto3.client("ec2")
+
+
+aws = AWSHandle()
+
 GRAND_TOTAL_RESOURCES = 0
-ec2 = boto3.client("ec2")
-response = ec2.describe_regions()
-for region in response["Regions"]:
+for region in aws.regions:
     RegionName = region["RegionName"]
 
     # Setup the branch
