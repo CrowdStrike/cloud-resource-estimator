@@ -37,7 +37,7 @@ if type az >/dev/null 2>&1; then
 fi
 
 if type gcloud >/dev/null 2>&1; then
-    audit GCP
+    audit "GCP"
 fi
 
 popd || exit
