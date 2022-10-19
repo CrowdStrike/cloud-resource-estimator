@@ -30,10 +30,6 @@ aws_account = {}
 aws_account["totals"] = {}
 checks = [
     ["ec2", "Reservations", "describe_instances", "MaxResults", "1000", "ec2"],
-    ["rds", "DBInstances", "describe_db_instances", "MaxRecords", "100", "rds"],
-    ["redshift", "Clusters", "describe_clusters", "MaxRecords", "100", "redshift"],
-    ["elbv2", "LoadBalancers", "describe_load_balancers", "PageSize", "400", "lb"],
-    ["ec2", "NatGateways", "describe_nat_gateways", "MaxResults", "1000", "natg"],
     ["ecs", "clusterArns", "list_clusters", "", "", "ecs"],
     ["eks", "clusters", "list_clusters", "", "", "eks"]
 ]
@@ -41,20 +37,12 @@ data = []
 headers = {
             "region": "Region",
             "ec2": "EC2",
-            "rds": "RDS",
-            "redshift": "Redshift",
-            "lb": "ALB/ELB",
-            "natg": "NAT",
             "ecs": "ECS - Clusters",
             "eks": "EKS - Clusters"
 }
 totals = {
             "region": "TOTAL",
             "ec2": 0,
-            "rds": 0,
-            "redshift": 0,
-            "lb": 0,
-            "natg": 0,
             "ecs": 0,
             "eks": 0
 }
