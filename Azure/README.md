@@ -20,5 +20,5 @@ curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmar
 ### Collect the findings
 
 ```
-cat benchmark.txt
+cat ./cloud-benchmark/*benchmark.csv
 ```
