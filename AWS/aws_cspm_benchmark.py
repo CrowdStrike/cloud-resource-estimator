@@ -8,9 +8,9 @@ Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
 import csv
+from functools import cached_property
 import boto3
 from tabulate import tabulate
-from functools import cached_property
 
 
 def process(reg: str, svc: list) -> dict:
