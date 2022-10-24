@@ -53,20 +53,14 @@ class GCP:
         return cluster.get('autopilot', {}).get('enabled', False)
 
 
-data = []
-totals = {'project_id': 'totals',
-          'kubenodes_running': 0, 'kubenodes_terminated': 0,
-          'vms_running': 0, 'vms_terminated': 0}
-gcp = GCP()
-
-for project in gcp.projects():
+def process_gcp_project(project):
     if project.state == Project.State.DELETE_REQUESTED:
         log.debug("Skipping GCP project %s (project pending deletion)", project.display_name)
-        continue
+        return {}
 
     row = {'project_id': project.project_id,
-          'kubenodes_running': 0, 'kubenodes_terminated': 0,
-          'vms_running': 0, 'vms_terminated': 0}
+           'kubenodes_running': 0, 'kubenodes_terminated': 0,
+           'vms_running': 0, 'vms_terminated': 0}
     log.info("Exploring GCP project: %s", project.display_name)
 
     try:
@@ -87,12 +81,24 @@ for project in gcp.projects():
     except google.api_core.exceptions.Forbidden as e:
         log.error("ERROR: cannot explore project: %s: %s", project.display_name, e)
 
-    data.append(row)
-    for k in totals.keys():
-        if k == 'project_id':
-            continue
+    return row
 
-        totals[k] += row[k]
+
+data = []
+totals = {'project_id': 'totals',
+          'kubenodes_running': 0, 'kubenodes_terminated': 0,
+          'vms_running': 0, 'vms_terminated': 0}
+gcp = GCP()
+
+for project in gcp.projects():
+    row = process_gcp_project(project)
+    if row:
+        data.append(row)
+        for k in totals.keys():
+            if k == 'project_id':
+                continue
+
+            totals[k] += row[k]
 
 
 data.append(totals)
