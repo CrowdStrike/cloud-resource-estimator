@@ -76,12 +76,9 @@ for region in aws.regions:
         aws_account[RegionName][service[5]] = process(RegionName, service)
         # Calculate the number of elements found and throw it in the totals branch
         aws_account["totals"][RegionName][service[5]] = len(aws_account[RegionName][service[5]][service[1]])
-        if service[5] not in ["iam"]:
-            # Increment the number of elements found for the service in our grand total
-            totals[service[5]] += aws_account["totals"][RegionName][service[5]]
-        else:
-            # IAM roles are not region-specific, so just overwrite the previous value (it'll be the same)
-            totals[service[5]] = aws_account["totals"][RegionName][service[5]]
+
+        totals[service[5]] += aws_account["totals"][RegionName][service[5]]
+
         # Update the row with this service's totals
         row.update(aws_account["totals"][RegionName])
     # Add the row to our display table
