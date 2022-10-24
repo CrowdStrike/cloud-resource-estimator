@@ -65,3 +65,32 @@ jobs:
       run: |
         cd Azure
         bandit  -l -i -r .
+
+  gcp:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.x']
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        cd GCP
+        python -m pip install -r requirements.txt
+        pip install flake8 pylint bandit
+    - name: Lint with flake8
+      run: |
+        cd GCP
+        flake8 gcp_cspm_benchmark.py
+    - name: Lint with pylint
+      run: |
+        cd GCP
+        pylint gcp_cspm_benchmark.py
+    - name: Lint with bandit
+      run: |
+        cd GCP
+        bandit  -l -i -r .
