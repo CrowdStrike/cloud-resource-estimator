@@ -29,7 +29,6 @@ def process(reg: str, svc: list) -> dict:
 aws_account = {}
 aws_account["totals"] = {}
 checks = [
-    ["ec2", "Reservations", "describe_instances", "MaxResults", "1000", "ec2"],
     ["ecs", "clusterArns", "list_clusters", "", "", "ecs"],
     ["eks", "clusters", "list_clusters", "", "", "eks"]
 ]
@@ -52,6 +51,20 @@ class AWSHandle:
     @property
     def regions(self):
         return self.ec2.describe_regions()['Regions']
+
+    def ec2_instances(self, aws_region):
+        client = boto3.client('ec2', aws_region)
+
+        response = client.describe_instances(MaxResults=1000)
+        instances = response['Reservations']
+        next_token = response['NextToken'] if 'NextToken' in response else None
+
+        while next_token:
+            response = client.describe_instances(MaxResults=1000, NextToken=next_token)
+            instances += response['Reservations']
+            next_token = response['NextToken'] if 'NextToken' in response else None
+
+        return instances
 
     @cached_property
     def ec2(self):
@@ -81,6 +94,12 @@ for region in aws.regions:
 
         # Update the row with this service's totals
         row.update(aws_account["totals"][RegionName])
+
+    # Count ec2 instances
+    row['ec2'] = len(aws.ec2_instances(RegionName))
+    for k in ['ec2']:
+        aws_account['totals'][RegionName][k] = row[k]
+
     # Add the row to our display table
     data.append(row)
 # Add in our grand totals to the display table
