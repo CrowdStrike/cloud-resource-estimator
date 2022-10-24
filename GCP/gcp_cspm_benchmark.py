@@ -1,8 +1,6 @@
 import csv
 import logging
-from collections import defaultdict
 from functools import cached_property
-from typing import Dict, Iterable
 import google.api_core.exceptions
 from google.cloud.resourcemanager import ProjectsClient
 from google.cloud.resourcemanager_v3.types import Project
