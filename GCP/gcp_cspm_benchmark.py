@@ -1,8 +1,6 @@
 import csv
 import logging
-from collections import defaultdict
 from functools import cached_property
-from typing import Dict, Iterable
 import google.api_core.exceptions
 from google.cloud.resourcemanager import ProjectsClient
 from google.cloud.resourcemanager_v3.types import Project
@@ -34,7 +32,8 @@ class GCP:
 
     def clusters(self, project_id):
         service = discovery.build('container', 'v1')
-        request = service.projects().zones().clusters().list(projectId=project_id, zone='-')
+        endpoint = service.projects().zones().clusters()  # pylint: disable=no-member
+        request = endpoint.list(projectId=project_id, zone='-')
         response = request.execute()
         return response.get('clusters', [])
 
@@ -55,20 +54,14 @@ class GCP:
         return cluster.get('autopilot', {}).get('enabled', False)
 
 
-data = []
-totals = {'project_id': 'totals',
-          'kubenodes_running': 0, 'kubenodes_terminated': 0,
-          'vms_running': 0, 'vms_terminated': 0}
-gcp = GCP()
-
-for project in gcp.projects():
+def process_gcp_project(project):  # pylint: disable=redefined-outer-name
     if project.state == Project.State.DELETE_REQUESTED:
         log.debug("Skipping GCP project %s (project pending deletion)", project.display_name)
-        continue
+        return {}
 
-    row = {'project_id': project.project_id,
-          'kubenodes_running': 0, 'kubenodes_terminated': 0,
-          'vms_running': 0, 'vms_terminated': 0}
+    result = {'project_id': project.project_id,
+              'kubenodes_running': 0, 'kubenodes_terminated': 0,
+              'vms_running': 0, 'vms_terminated': 0}
     log.info("Exploring GCP project: %s", project.display_name)
 
     try:
@@ -78,23 +71,35 @@ for project in gcp.projects():
                 log.error("Skipping GKE Autopilot cluster %s in project: %s", cluster['name'], project.display_name)
 
         # (2) Process instances
-        for zone, response in gcp.list_instances(project.project_id):
+        for _zone, response in gcp.list_instances(project.project_id):
             if response.instances:
                 for instance in response.instances:
                     typ = 'kubenode' if GCP.is_vm_kubenode(instance) else 'vm'
                     state = 'running' if GCP.is_vm_running(instance) else 'terminated'
                     key = f"{typ}s_{state}"
-                    row[key] += 1
+                    result[key] += 1
 
-    except google.api_core.exceptions.Forbidden as e:
-        log.error("ERROR: cannot explore project: %s: %s", project.display_name, e)
+    except google.api_core.exceptions.Forbidden as exc:
+        log.error("ERROR: cannot explore project: %s: %s", project.display_name, exc)
 
-    data.append(row)
-    for k in totals.keys():
-        if k == 'project_id':
-            continue
+    return result
 
-        totals[k] += row[k]
+
+data = []
+totals = {'project_id': 'totals',
+          'kubenodes_running': 0, 'kubenodes_terminated': 0,
+          'vms_running': 0, 'vms_terminated': 0}
+gcp = GCP()
+
+for project in gcp.projects():
+    row = process_gcp_project(project)
+    if row:
+        data.append(row)
+        for k in totals:
+            if k == 'project_id':
+                continue
+
+            totals[k] += row[k]
 
 
 data.append(totals)
