@@ -21,8 +21,6 @@ def process(reg: str, svc: list) -> dict:
     _ = boto3.client(svc[0], region_name=reg)
     delim = "=" if svc[3] else ""
     ec2_filter = ""
-    if svc[3] == "describe_instances":
-        ec2_filter = "Filters=[{'Name': 'instance-state-name', 'Values': ['terminated']}]"
     return eval(f"_.{svc[2]}({svc[3]}{delim}{svc[4]}{ec2_filter})")  # nosec   pylint: disable=W0123
 
 
@@ -35,15 +33,17 @@ checks = [
 data = []
 headers = {
             "region": "Region",
-            "ec2": "EC2",
             "ecs": "ECS - Clusters",
-            "eks": "EKS - Clusters"
+            "eks": "EKS - Clusters",
+            "vms_terminated": "Terminated VMs",
+            "vms_running": "Running VMs"
 }
 totals = {
             "region": "TOTAL",
-            "ec2": 0,
             "ecs": 0,
-            "eks": 0
+            "eks": 0,
+            "vms_terminated": 0,
+            "vms_running": 0
 }
 
 
@@ -70,6 +70,10 @@ class AWSHandle:
     def ec2(self):
         return boto3.client("ec2")
 
+    @classmethod
+    def is_vm_running(cls, vm):
+        return vm['State']['Name'] != 'stopped'
+
 
 aws = AWSHandle()
 
@@ -82,7 +86,7 @@ for region in aws.regions:
     aws_account[RegionName] = {}
     aws_account["totals"][RegionName] = {}
     # Create the row for our output table
-    row = {}
+    row = {'vms_terminated': 0, 'vms_running': 0}
     row["region"] = RegionName
     for service in checks:
         # Process each service, adding the results to the aws_account object
@@ -96,9 +100,15 @@ for region in aws.regions:
         row.update(aws_account["totals"][RegionName])
 
     # Count ec2 instances
-    row['ec2'] = len(aws.ec2_instances(RegionName))
-    for k in ['ec2']:
-        aws_account['totals'][RegionName][k] = row[k]
+    for reservation in aws.ec2_instances(RegionName):
+        for instance in reservation['Instances']:
+            typ = 'vm'
+            state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
+            key = f"{typ}s_{state}"
+            row[key] += 1
+
+    for k in ['vms_terminated', 'vms_running']:
+        totals[k] += row[k]
 
     # Add the row to our display table
     data.append(row)
