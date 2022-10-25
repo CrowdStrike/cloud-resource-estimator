@@ -86,8 +86,7 @@ for region in aws.regions:
     aws_account[RegionName] = {}
     aws_account["totals"][RegionName] = {}
     # Create the row for our output table
-    row = {'vms_terminated': 0, 'vms_running': 0}
-    row["region"] = RegionName
+    row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0}
     for service in checks:
         # Process each service, adding the results to the aws_account object
         aws_account[RegionName][service[5]] = process(RegionName, service)
