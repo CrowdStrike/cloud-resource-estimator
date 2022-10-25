@@ -84,7 +84,6 @@ class AWSHandle:
 
 aws = AWSHandle()
 
-GRAND_TOTAL_RESOURCES = 0
 for region in aws.regions:
     RegionName = region["RegionName"]
 
@@ -121,15 +120,9 @@ for region in aws.regions:
     data.append(row)
 # Add in our grand totals to the display table
 data.append(totals)
-# Create GRAND_TOTAL_RESOURCE count for quoting
-for key, val in totals.items():
-    if val != 'TOTAL':
-        GRAND_TOTAL_RESOURCES += val
 
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
-# Output GRAND_TOTAL_RESOURCE
-print(f"\nTotal billable resources discovered across all regions: {GRAND_TOTAL_RESOURCES}\n\n")
 
 with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
