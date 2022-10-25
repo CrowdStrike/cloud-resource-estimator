@@ -28,13 +28,11 @@ aws_account = {}
 aws_account["totals"] = {}
 checks = [
     ["ecs", "clusterArns", "list_clusters", "", "", "ecs"],
-    ["eks", "clusters", "list_clusters", "", "", "eks"]
 ]
 data = []
 headers = {
             "region": "Region",
             "ecs": "ECS - Clusters",
-            "eks": "EKS - Clusters",
             "vms_terminated": "Terminated VMs",
             "vms_running": "Running VMs",
             'kubenodes_terminated': "Terminated Kubernetes Nodes",
@@ -43,7 +41,6 @@ headers = {
 totals = {
             "region": "TOTAL",
             "ecs": 0,
-            "eks": 0,
             "vms_terminated": 0,
             "vms_running": 0,
             'kubenodes_terminated': 0,
