@@ -36,18 +36,24 @@ headers = {
             "ecs": "ECS - Clusters",
             "eks": "EKS - Clusters",
             "vms_terminated": "Terminated VMs",
-            "vms_running": "Running VMs"
+            "vms_running": "Running VMs",
+            'kubenodes_terminated': "Terminated Kubernetes Nodes",
+            'kubenodes_running': "Running Kubernetes Nodes"
 }
 totals = {
             "region": "TOTAL",
             "ecs": 0,
             "eks": 0,
             "vms_terminated": 0,
-            "vms_running": 0
+            "vms_running": 0,
+            'kubenodes_terminated': 0,
+            'kubenodes_running': 0
 }
 
 
 class AWSHandle:
+    EKS_TAGS = ['eks:cluster-name', 'alpha.eksctl.io/nodegroup-type', 'aws:eks:cluster-name', 'eks:nodegroup-name']
+
     @property
     def regions(self):
         return self.ec2.describe_regions()['Regions']
@@ -71,6 +77,10 @@ class AWSHandle:
         return boto3.client("ec2")
 
     @classmethod
+    def is_vm_kubenode(cls, instance):
+        return any(True for tag in instance.get('Tags', []) if tag['Key'] in cls.EKS_TAGS)
+
+    @classmethod
     def is_vm_running(cls, vm):
         return vm['State']['Name'] != 'stopped'
 
@@ -86,7 +96,8 @@ for region in aws.regions:
     aws_account[RegionName] = {}
     aws_account["totals"][RegionName] = {}
     # Create the row for our output table
-    row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0}
+    row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0,
+           'kubenodes_terminated': 0, 'kubenodes_running': 0}
     for service in checks:
         # Process each service, adding the results to the aws_account object
         aws_account[RegionName][service[5]] = process(RegionName, service)
@@ -101,12 +112,12 @@ for region in aws.regions:
     # Count ec2 instances
     for reservation in aws.ec2_instances(RegionName):
         for instance in reservation['Instances']:
-            typ = 'vm'
+            typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
             state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
             key = f"{typ}s_{state}"
             row[key] += 1
 
-    for k in ['vms_terminated', 'vms_running']:
+    for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated', 'kubenodes_running']:
         totals[k] += row[k]
 
     # Add the row to our display table
