@@ -13,22 +13,6 @@ import boto3
 from tabulate import tabulate
 
 
-def process(reg: str, svc: list) -> dict:
-    """ Query a particular AWS service and return the
-        resulting output back as a JSON dictionary (sorta).
-    """
-    # TODO: Implement paging for large resultsets       pylint: disable=W0511
-    _ = boto3.client(svc[0], region_name=reg)
-    delim = "=" if svc[3] else ""
-    ec2_filter = ""
-    return eval(f"_.{svc[2]}({svc[3]}{delim}{svc[4]}{ec2_filter})")  # nosec   pylint: disable=W0123
-
-
-aws_account = {}
-aws_account["totals"] = {}
-checks = [
-    ["ecs", "clusterArns", "list_clusters", "", "", "ecs"],
-]
 data = []
 headers = {
             "region": "Region",
@@ -143,21 +127,9 @@ for aws in AWSOrgAccess().accounts():
 
         # Setup the branch
         print(f"Processing {RegionName}")
-        aws_account[RegionName] = {}
-        aws_account["totals"][RegionName] = {}
         # Create the row for our output table
         row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0,
                'kubenodes_terminated': 0, 'kubenodes_running': 0}
-        for service in checks:
-            # Process each service, adding the results to the aws_account object
-            aws_account[RegionName][service[5]] = process(RegionName, service)
-            # Calculate the number of elements found and throw it in the totals branch
-            aws_account["totals"][RegionName][service[5]] = len(aws_account[RegionName][service[5]][service[1]])
-
-            totals[service[5]] += aws_account["totals"][RegionName][service[5]]
-
-            # Update the row with this service's totals
-            row.update(aws_account["totals"][RegionName])
 
         # Count ec2 instances
         for reservation in aws.ec2_instances(RegionName):
