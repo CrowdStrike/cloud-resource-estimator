@@ -47,6 +47,16 @@ totals = {
             'kubenodes_running': 0
 }
 
+class AWSOrgAccess:
+    @classmethod
+    def accounts(cls):
+        try:
+            client = boto3.client('organizations')
+            response = client.list_accounts()
+        except client.exceptions.AccessDeniedException as exc:
+            print("Cannot autodiscover adjacent accounts: cannot list accounts within the AWS organization")
+            return [AWSHandle()]
+
 
 class AWSHandle:
     EKS_TAGS = ['eks:cluster-name', 'alpha.eksctl.io/nodegroup-type', 'aws:eks:cluster-name', 'eks:nodegroup-name']
@@ -82,43 +92,42 @@ class AWSHandle:
         return vm['State']['Name'] != 'stopped'
 
 
-aws = AWSHandle()
+for aws in AWSOrgAccess.accounts():
+    for region in aws.regions:
+        RegionName = region["RegionName"]
 
-for region in aws.regions:
-    RegionName = region["RegionName"]
+        # Setup the branch
+        print(f"Processing {RegionName}")
+        aws_account[RegionName] = {}
+        aws_account["totals"][RegionName] = {}
+        # Create the row for our output table
+        row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0,
+               'kubenodes_terminated': 0, 'kubenodes_running': 0}
+        for service in checks:
+            # Process each service, adding the results to the aws_account object
+            aws_account[RegionName][service[5]] = process(RegionName, service)
+            # Calculate the number of elements found and throw it in the totals branch
+            aws_account["totals"][RegionName][service[5]] = len(aws_account[RegionName][service[5]][service[1]])
 
-    # Setup the branch
-    print(f"Processing {RegionName}")
-    aws_account[RegionName] = {}
-    aws_account["totals"][RegionName] = {}
-    # Create the row for our output table
-    row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0,
-           'kubenodes_terminated': 0, 'kubenodes_running': 0}
-    for service in checks:
-        # Process each service, adding the results to the aws_account object
-        aws_account[RegionName][service[5]] = process(RegionName, service)
-        # Calculate the number of elements found and throw it in the totals branch
-        aws_account["totals"][RegionName][service[5]] = len(aws_account[RegionName][service[5]][service[1]])
+            totals[service[5]] += aws_account["totals"][RegionName][service[5]]
 
-        totals[service[5]] += aws_account["totals"][RegionName][service[5]]
+            # Update the row with this service's totals
+            row.update(aws_account["totals"][RegionName])
 
-        # Update the row with this service's totals
-        row.update(aws_account["totals"][RegionName])
+        # Count ec2 instances
+        for reservation in aws.ec2_instances(RegionName):
+            for instance in reservation['Instances']:
+                typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
+                state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
+                key = f"{typ}s_{state}"
+                row[key] += 1
 
-    # Count ec2 instances
-    for reservation in aws.ec2_instances(RegionName):
-        for instance in reservation['Instances']:
-            typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
-            state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
-            key = f"{typ}s_{state}"
-            row[key] += 1
+        for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated', 'kubenodes_running']:
+            totals[k] += row[k]
 
-    for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated', 'kubenodes_running']:
-        totals[k] += row[k]
-
-    # Add the row to our display table
-    data.append(row)
-# Add in our grand totals to the display table
+        # Add the row to our display table
+        data.append(row)
+    # Add in our grand totals to the display table
 data.append(totals)
 
 # Output our results
