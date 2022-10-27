@@ -54,8 +54,8 @@ class AWSOrgAccess:
 
     def aws_handle(self, account):
         if account['Id'] == self.master_account_id:
-            return AWSHandle(aws_session=self.master_session)
-        return AWSHandle(aws_session=self.new_session(account['Id']))
+            return AWSHandle(aws_session=self.master_session, account_id=self.master_account_id)
+        return AWSHandle(aws_session=self.new_session(account['Id']), account_id=account['Id'])
 
     def new_session(self, account_id):
         try:
@@ -89,9 +89,9 @@ class AWSOrgAccess:
 class AWSHandle:
     EKS_TAGS = ['eks:cluster-name', 'alpha.eksctl.io/nodegroup-type', 'aws:eks:cluster-name', 'eks:nodegroup-name']
 
-    def __init__(self, aws_session=None):
+    def __init__(self, aws_session=None, account_id=None):
         self.aws_session = aws_session if aws_session else boto3.session.Session()
-        self.acc_id = None
+        self.acc_id = account_id
 
     @property
     def regions(self):
