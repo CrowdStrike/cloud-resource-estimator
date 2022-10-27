@@ -15,6 +15,7 @@ from tabulate import tabulate
 
 data = []
 headers = {
+            'account_id': 'AWS Account ID',
             "region": "Region",
             "ecs": "ECS - Clusters",
             "vms_terminated": "Terminated VMs",
@@ -24,6 +25,7 @@ headers = {
 }
 totals = {
             "region": "TOTAL",
+            'account_id': 'TOTAL',
             "ecs": 0,
             "vms_terminated": 0,
             "vms_running": 0,
@@ -89,6 +91,7 @@ class AWSHandle:
 
     def __init__(self, aws_session=None):
         self.aws_session = aws_session if aws_session else boto3.session.Session()
+        self.acc_id = None
 
     @property
     def regions(self):
@@ -120,6 +123,14 @@ class AWSHandle:
     def is_vm_running(cls, vm):
         return vm['State']['Name'] != 'stopped'
 
+    @property
+    def account_id(self):
+        if self.acc_id is None:
+            sts = self.aws_session.client('sts')
+            self.acc_id = sts.get_caller_identity()["Account"]
+
+        return self.acc_id
+
 
 for aws in AWSOrgAccess().accounts():
     for region in aws.regions:
@@ -128,7 +139,8 @@ for aws in AWSOrgAccess().accounts():
         # Setup the branch
         print(f"Processing {RegionName}")
         # Create the row for our output table
-        row = {'region': RegionName, 'vms_terminated': 0, 'vms_running': 0,
+        row = {'account_id': aws.account_id, 'region': RegionName,
+               'vms_terminated': 0, 'vms_running': 0,
                'kubenodes_terminated': 0, 'kubenodes_running': 0}
 
         # Count ec2 instances
