@@ -16,7 +16,6 @@ data = []
 headers = {
             'account_id': 'AWS Account ID',
             "region": "Region",
-            "ecs": "ECS - Clusters",
             "vms_terminated": "Terminated VMs",
             "vms_running": "Running VMs",
             'kubenodes_terminated': "Terminated Kubernetes Nodes",
@@ -25,7 +24,6 @@ headers = {
 totals = {
             "region": "TOTAL",
             'account_id': 'TOTAL',
-            "ecs": 0,
             "vms_terminated": 0,
             "vms_running": 0,
             'kubenodes_terminated': 0,
