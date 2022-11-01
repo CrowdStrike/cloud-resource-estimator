@@ -8,7 +8,6 @@ Author: Joshua Hiller @ CrowdStrike
 Creation date: 03.23.21
 """
 import csv
-from functools import cached_property
 import boto3
 from tabulate import tabulate
 
@@ -35,6 +34,11 @@ totals = {
 
 
 class AWSOrgAccess:
+    def __init__(self):
+        self.master_session = boto3.session.Session()
+        self.master_sts = self.master_session.client('sts')
+        self.master_account_id = self.master_sts.get_caller_identity()["Account"]
+
     def accounts(self):
         try:
             client = boto3.client('organizations')
@@ -73,18 +77,6 @@ class AWSOrgAccess:
             print("Cannot access adjacent account: ", account_id, exc)
             raise exc
 
-    @cached_property
-    def master_session(self):
-        return boto3.session.Session()
-
-    @cached_property
-    def master_sts(self):
-        return self.master_session.client('sts')
-
-    @cached_property
-    def master_account_id(self):
-        return self.master_sts.get_caller_identity()["Account"]
-
 
 class AWSHandle:
     EKS_TAGS = ['eks:cluster-name', 'alpha.eksctl.io/nodegroup-type', 'aws:eks:cluster-name', 'eks:nodegroup-name']
@@ -111,7 +103,7 @@ class AWSHandle:
 
         return instances
 
-    @cached_property
+    @property
     def ec2(self):
         return self.aws_session.client("ec2")
 
