@@ -110,7 +110,8 @@ for subscription in az.subscriptions:
 
     # (2) Process VMSS
     for vmss in az.vmss_resources(subscription.subscription_id):
-        if 'aks-managed-createOperationID' in vmss.tags:  # AKS resources already accounted for above
+        if vmss.tags is not None and 'aks-managed-createOperationID' in vmss.tags:
+            # AKS resources already accounted for above
             continue
 
         vm_count = sum(1 for vm in az.vms_inside_vmss(vmss))
