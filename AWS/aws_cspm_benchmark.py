@@ -165,12 +165,12 @@ data.append(totals)
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
 
-with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+with open('aws-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-print("\nCSV file stored in: ./benchmark.csv\n\n")
+print("\nCSV file stored in: ./aws-benchmark.csv\n\n")
 
 
 #     .wwwwwwww.

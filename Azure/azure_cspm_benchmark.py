@@ -130,9 +130,9 @@ for subscription in az.subscriptions:
 data.append(totals)
 
 headers = ['tenant_id', 'subscription_id', 'aks_nodes', 'vms']
-with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+with open('az-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-log.info("CSV summary has been exported to ./benchmark.csv file")
+log.info("CSV summary has been exported to ./az-benchmark.csv file")
