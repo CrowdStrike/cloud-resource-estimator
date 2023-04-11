@@ -61,13 +61,13 @@ class AWSOrgAccess:
     def aws_handle(self, account):
         if account['Id'] == self.master_account_id:
             return AWSHandle(aws_session=self.master_session, account_id=self.master_account_id)
-        else:
-            # Check if new_session returns a session object
-            session = self.new_session(account['Id'])
-            if session:
-                return AWSHandle(aws_session=session, account_id=account['Id'])
-            else:
-                return None
+
+        # Check if new_session returns a session object
+        session = self.new_session(account['Id'])
+        if session:
+            return AWSHandle(aws_session=session, account_id=account['Id'])
+
+        return None
 
     def new_session(self, account_id):
         try:
@@ -83,9 +83,10 @@ class AWSOrgAccess:
             )
         except self.master_sts.exceptions.ClientError as exc:
             # Print the error and continue.
-            # TODO: Handle what to do with accounts that cannot be accessed
+            # Handle what to do with accounts that cannot be accessed
             # due to assuming role errors.
             print("Cannot access adjacent account: ", account_id, exc)
+            return None
 
 
 class AWSHandle:
