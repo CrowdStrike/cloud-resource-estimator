@@ -14,20 +14,20 @@ from tabulate import tabulate
 
 data = []
 headers = {
-            'account_id': 'AWS Account ID',
-            "region": "Region",
-            "vms_terminated": "Terminated VMs",
-            "vms_running": "Running VMs",
-            'kubenodes_terminated': "Terminated Kubernetes Nodes",
-            'kubenodes_running': "Running Kubernetes Nodes"
+    'account_id': 'AWS Account ID',
+    "region": "Region",
+    "vms_terminated": "Terminated VMs",
+    "vms_running": "Running VMs",
+    'kubenodes_terminated': "Terminated Kubernetes Nodes",
+    'kubenodes_running': "Running Kubernetes Nodes"
 }
 totals = {
-            "region": "TOTAL",
-            'account_id': 'TOTAL',
-            "vms_terminated": 0,
-            "vms_running": 0,
-            'kubenodes_terminated': 0,
-            'kubenodes_running': 0
+    "region": "TOTAL",
+    'account_id': 'TOTAL',
+    "vms_terminated": 0,
+    "vms_running": 0,
+    'kubenodes_terminated': 0,
+    'kubenodes_running': 0
 }
 
 
@@ -49,7 +49,11 @@ class AWSOrgAccess:
                 accounts += response['Accounts']
                 next_token = response.get('NextToken', None)
 
-            return [self.aws_handle(a) for a in accounts]
+            # We only want accounts that are in ACTIVE state
+            # Permissable values are: 'ACTIVE'|'SUSPENDED'|'PENDING_CLOSURE'
+            active_accounts = [a for a in accounts if a['Status'] == 'ACTIVE']
+
+            return [self.aws_handle(a) for a in active_accounts if self.aws_handle(a)]
         except client.exceptions.AccessDeniedException:
             print("Cannot autodiscover adjacent accounts: cannot list accounts within the AWS organization")
             return [AWSHandle()]
@@ -57,7 +61,13 @@ class AWSOrgAccess:
     def aws_handle(self, account):
         if account['Id'] == self.master_account_id:
             return AWSHandle(aws_session=self.master_session, account_id=self.master_account_id)
-        return AWSHandle(aws_session=self.new_session(account['Id']), account_id=account['Id'])
+
+        # Check if new_session returns a session object
+        session = self.new_session(account['Id'])
+        if session:
+            return AWSHandle(aws_session=session, account_id=account['Id'])
+
+        return None
 
     def new_session(self, account_id):
         try:
@@ -70,10 +80,13 @@ class AWSOrgAccess:
                 aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
                 aws_session_token=credentials['Credentials']['SessionToken'],
                 region_name='us-east-1'
-               )
+            )
         except self.master_sts.exceptions.ClientError as exc:
+            # Print the error and continue.
+            # Handle what to do with accounts that cannot be accessed
+            # due to assuming role errors.
             print("Cannot access adjacent account: ", account_id, exc)
-            raise exc
+            return None
 
 
 class AWSHandle:
