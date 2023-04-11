@@ -14,20 +14,20 @@ from tabulate import tabulate
 
 data = []
 headers = {
-            'account_id': 'AWS Account ID',
-            "region": "Region",
-            "vms_terminated": "Terminated VMs",
-            "vms_running": "Running VMs",
-            'kubenodes_terminated': "Terminated Kubernetes Nodes",
-            'kubenodes_running': "Running Kubernetes Nodes"
+    'account_id': 'AWS Account ID',
+    "region": "Region",
+    "vms_terminated": "Terminated VMs",
+    "vms_running": "Running VMs",
+    'kubenodes_terminated': "Terminated Kubernetes Nodes",
+    'kubenodes_running': "Running Kubernetes Nodes"
 }
 totals = {
-            "region": "TOTAL",
-            'account_id': 'TOTAL',
-            "vms_terminated": 0,
-            "vms_running": 0,
-            'kubenodes_terminated': 0,
-            'kubenodes_running': 0
+    "region": "TOTAL",
+    'account_id': 'TOTAL',
+    "vms_terminated": 0,
+    "vms_running": 0,
+    'kubenodes_terminated': 0,
+    'kubenodes_running': 0
 }
 
 
@@ -80,7 +80,7 @@ class AWSOrgAccess:
                 aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
                 aws_session_token=credentials['Credentials']['SessionToken'],
                 region_name='us-east-1'
-               )
+            )
         except self.master_sts.exceptions.ClientError as exc:
             # Print the error and continue.
             # TODO: Handle what to do with accounts that cannot be accessed
