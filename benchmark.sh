@@ -30,7 +30,8 @@ check_python3() {
 # Ensures the provided cloud provider arg is valid
 is_valid_cloud() {
     local cloud="$1"
-    local lower_cloud=$(echo "$cloud" | tr '[:upper:]' '[:lower:]')
+    local lower_cloud
+    lower_cloud=$(echo "$cloud" | tr '[:upper:]' '[:lower:]')
 
     case "$lower_cloud" in
     aws)
@@ -78,6 +79,7 @@ found_provider=false
 # If arguments are provided, audit the specified providers
 for arg in "$@"; do
     result=$(is_valid_cloud "$arg")
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ]; then
         audit "$result"
         found_provider=true
