@@ -1,3 +1,10 @@
+"""
+gcp-cspm-benchmark.py
+
+Assists with provisioning calculations by retrieving a count
+of all billable resources attached to a GCP project.
+"""
+
 import csv
 import logging
 from functools import cached_property
