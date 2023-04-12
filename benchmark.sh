@@ -9,7 +9,7 @@ base_url=https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main
 # Usage message
 usage() {
     echo """
-    Usage: $0 [AWS|Azure|GCP]...
+    Usage: $0 [aws|azure|gcp]...
 
     More than one cloud provider can be specified.
     If no cloud provider is specified, the script will attempt to detect the provider."""
