@@ -1,6 +1,6 @@
 #!/bin/bash
 # Universal cloud provider provisioning calculator
-# Identifies the current cloud provider, then downloads the necessary scripts
+# Based on the cloud provider, downloads the necessary scripts
 # to perform a sizing calculation.
 #
 
@@ -27,6 +27,7 @@ check_python3() {
     fi
 }
 
+# Ensures the provided cloud provider arg is valid
 is_valid_cloud() {
     local cloud="$1"
     local lower_cloud=$(echo "$cloud" | tr '[:upper:]' '[:lower:]')
@@ -48,7 +49,6 @@ is_valid_cloud() {
         return 1
         ;;
     esac
-
 }
 
 audit() {
@@ -56,14 +56,12 @@ audit() {
     echo "Working in cloud: ${CLOUD}"
     cloud=$(echo "$CLOUD" | tr '[:upper:]' '[:lower:]')
 
-    # curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
-    cp "../${CLOUD}/requirements.txt" .
+    curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
     echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
 
     python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
     file="${cloud}_cspm_benchmark.py"
-    # curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
-    cp "../${CLOUD}/${file}" .
+    curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
     python3 "${file}"
 }
 
