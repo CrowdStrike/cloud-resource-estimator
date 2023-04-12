@@ -12,14 +12,12 @@ No changes will be made to your account. No data will be sent anywhere and will 
 
 ### Run the script
 
-   ```
-   ./benchmark.sh
-   ```
-
-(Alternatively, if you happen to be frequent cloud user and have `gcloud` utility installed locally, you can run the below step locally instead of using cloud shell). In that case, you can use short cut: `curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash`
+```shell
+./benchmark.sh
+```
 
 ### Collect the findings
 
-```
+```shell
 cat ./cloud-benchmark/*benchmark.csv
 ```

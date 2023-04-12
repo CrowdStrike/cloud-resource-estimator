@@ -18,17 +18,14 @@ Open AWS Cloud Shell ([overview](https://aws.amazon.com/cloudshell/), [documenta
 | eu-west-1 | **[Ireland](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** |
 | ap-northeast-1 | **[Tokyo, Japan](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)** |
 
-
 ### Run the script
 
-   ```
-   curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
-   ```
-
-(Alternatively, if you happen to be frequent cloud user and have `aws` cli utility installed locally, you can run the below step locally instead of using cloud shell).
+```shell
+curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
+```
 
 ### Collect the findings
 
-```
+```shell
 cat ./cloud-benchmark/*benchmark.csv
 ```

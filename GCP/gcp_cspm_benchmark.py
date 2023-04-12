@@ -1,3 +1,10 @@
+"""
+gcp-cspm-benchmark.py
+
+Assists with provisioning calculations by retrieving a count
+of all billable resources attached to a GCP project.
+"""
+
 import csv
 import logging
 from functools import cached_property
@@ -105,9 +112,9 @@ for project in gcp.projects():
 data.append(totals)
 
 headers = ['project_id', 'kubenodes_running', 'kubenodes_terminated', 'vms_running', 'vms_terminated']
-with open('benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+with open('gcp-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-log.info("CSV summary has been exported to ./benchmark.csv file")
+log.info("CSV summary has been exported to ./gcp-benchmark.csv file")
