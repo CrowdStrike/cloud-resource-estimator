@@ -6,19 +6,18 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ## How to use
 
 ### Initialize execution environment
- - Log-in with azure. Using the account that has read access to all your azure tenants/subscriptions
- - Navigate to [Azure Cloud Shell](https://shell.azure.com) and choose bash option
 
-(Alternatively, if you happen to be frequent cloud user and have `az` utility installed locally, you can run the below step locally instead of using cloud shell).
+- Log-in with azure. Using the account that has read access to all your azure tenants/subscriptions
+- Navigate to [Azure Cloud Shell](https://shell.azure.com) and choose bash option
 
 ### Run the script
 
-```
+```shell
 curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
 ```
 
 ### Collect the findings
 
-```
+```shell
 cat ./cloud-benchmark/*benchmark.csv
 ```
