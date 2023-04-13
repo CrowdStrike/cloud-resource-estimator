@@ -3,7 +3,7 @@
 # Based on the cloud provider, downloads the necessary scripts
 # to perform a sizing calculation.
 
-base_url=https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main
+base_url=https://raw.githubusercontent.com/carlosmmatos/Cloud-Benchmark/carlosmmatos/issue26
 
 # Usage message
 usage() {
@@ -51,6 +51,35 @@ is_valid_cloud() {
     esac
 }
 
+# Calls the python script for the specified cloud provider with the
+# appropriate arguments
+call_benchmark_script() {
+    local cloud="$1"
+    local file="$2"
+    local args
+
+    case "$cloud" in
+    AWS)
+        if [[ ! -z $AWS_ASSUME_ROLE_NAME ]]; then
+            args="-r $AWS_ASSUME_ROLE_NAME"
+        fi
+        ;;
+    Azure)
+        args=""
+        ;;
+    GCP)
+        args=""
+        ;;
+    *)
+        echo "Invalid cloud provider specified: $cloud"
+        usage
+        exit 1
+        ;;
+    esac
+
+    python3 "${file}" "${args}"
+}
+
 audit() {
     CLOUD="$1"
     echo "Working in cloud: ${CLOUD}"
@@ -62,7 +91,8 @@ audit() {
     python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
     file="${cloud}_cspm_benchmark.py"
     curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
-    python3 "${file}"
+
+    call_benchmark_script "$CLOUD" "${file}"
 }
 
 check_python3
