@@ -60,9 +60,9 @@ call_benchmark_script() {
 
     case "$cloud" in
     AWS)
-        if [[ ! -z $AWS_ASSUME_ROLE_NAME ]]; then
-            args="-r $AWS_ASSUME_ROLE_NAME"
-        fi
+        [[ ! -z $AWS_ASSUME_ROLE_NAME ]] && args="-r $AWS_ASSUME_ROLE_NAME"
+        # Below is how we would pass in additional arguments if needed
+        #[[ ! -z $AWS_EXAMPLE ]] && args+=" -t $AWS_EXAMPLE"
         ;;
     Azure)
         args=""
@@ -77,7 +77,7 @@ call_benchmark_script() {
         ;;
     esac
 
-    python3 "${file}" "${args}"
+    python3 "${file}" ${args}
 }
 
 audit() {
