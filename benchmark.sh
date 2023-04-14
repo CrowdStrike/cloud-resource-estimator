@@ -3,7 +3,7 @@
 # Based on the cloud provider, downloads the necessary scripts
 # to perform a sizing calculation.
 
-base_url=https://raw.githubusercontent.com/carlosmmatos/Cloud-Benchmark/carlosmmatos/issue26
+base_url=https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main
 
 # Usage message
 usage() {
@@ -11,7 +11,12 @@ usage() {
     Usage: $0 [aws|azure|gcp]...
 
     More than one cloud provider can be specified.
-    If no cloud provider is specified, the script will attempt to detect the provider."""
+    If no cloud provider is specified, the script will attempt to detect the provider.
+    ----------------------------------------------------------------------------------
+
+    The script recognizes the following environment variables:
+
+        - AWS_ASSUME_ROLE_NAME: The name of the AWS role to assume (optional)"""
 }
 
 # Check if the system has Python3 and pip installed
@@ -56,19 +61,17 @@ is_valid_cloud() {
 call_benchmark_script() {
     local cloud="$1"
     local file="$2"
-    local args
+    local args=""
 
     case "$cloud" in
     AWS)
-        [[ ! -z $AWS_ASSUME_ROLE_NAME ]] && args="-r $AWS_ASSUME_ROLE_NAME"
+        [[ -n $AWS_ASSUME_ROLE_NAME ]] && args="-r $AWS_ASSUME_ROLE_NAME"
         # Below is how we would pass in additional arguments if needed
-        #[[ ! -z $AWS_EXAMPLE ]] && args+=" -t $AWS_EXAMPLE"
+        #[[ -n $AWS_EXAMPLE ]] && args+=" -t $AWS_EXAMPLE"
         ;;
     Azure)
-        args=""
         ;;
     GCP)
-        args=""
         ;;
     *)
         echo "Invalid cloud provider specified: $cloud"
@@ -77,7 +80,8 @@ call_benchmark_script() {
         ;;
     esac
 
-    python3 "${file}" ${args}
+    # python3 "${file}" ${args}
+    echo "python3 ${file} ${args}"
 }
 
 audit() {
