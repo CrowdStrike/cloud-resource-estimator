@@ -28,9 +28,14 @@ totals = {
     'kubenodes_running': 0
 }
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Analyze AWS accounts and regions for EC2 instances and Kubernetes nodes.")
-    parser.add_argument("-r", "--role_name", default="OrganizationAccountAccessRole", help="Specify a custom role name to assume into.")
+    parser = argparse.ArgumentParser(
+        description="Analyze AWS accounts and regions for EC2 instances and Kubernetes nodes.")
+    parser.add_argument(
+        "-r", "--role_name",
+        default="OrganizationAccountAccessRole",
+        help="Specify a custom role name to assume into.")
     return parser.parse_args()
 
 
