@@ -8,6 +8,18 @@ These utilities have been developed to assist you in calculating the overall siz
 
 The `benchmark.sh` entrypoint script helps you to perform sizing calculations for your cloud resources. It detects the cloud provider (AWS, Azure, or GCP) and downloads the necessary scripts to perform the calculation. You can also pass one or more cloud providers as arguments.
 
+***Configuration:***
+
+The script recognizes the following environmental variables:
+
+- `AWS_ASSUME_ROLE_NAME`: The name of the AWS role to assume (optional)
+
+To use, please export the variable in your environment prior to running the script:
+
+```shell
+export ENV_VARIABLE="Example-Value"
+```
+
 ***Usage:***
 
 ```shell

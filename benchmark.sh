@@ -11,7 +11,12 @@ usage() {
     Usage: $0 [aws|azure|gcp]...
 
     More than one cloud provider can be specified.
-    If no cloud provider is specified, the script will attempt to detect the provider."""
+    If no cloud provider is specified, the script will attempt to detect the provider.
+    ----------------------------------------------------------------------------------
+
+    The script recognizes the following environment variables:
+
+        - AWS_ASSUME_ROLE_NAME: The name of the AWS role to assume (optional)"""
 }
 
 # Check if the system has Python3 and pip installed
@@ -51,6 +56,33 @@ is_valid_cloud() {
     esac
 }
 
+# Calls the python script for the specified cloud provider with the
+# appropriate arguments
+call_benchmark_script() {
+    local cloud="$1"
+    local file="$2"
+    local args=()
+
+    case "$cloud" in
+    AWS)
+        [[ -n $AWS_ASSUME_ROLE_NAME ]] && args+=("-r" "$AWS_ASSUME_ROLE_NAME")
+        # Below is how we would pass in additional arguments if needed
+        # [[ -n $AWS_EXAMPLE ]] && args+=("-t" "$AWS_EXAMPLE")
+        ;;
+    Azure)
+        ;;
+    GCP)
+        ;;
+    *)
+        echo "Invalid cloud provider specified: $cloud"
+        usage
+        exit 1
+        ;;
+    esac
+
+    python3 "${file}" "${args[@]}"
+}
+
 audit() {
     CLOUD="$1"
     echo "Working in cloud: ${CLOUD}"
@@ -62,7 +94,8 @@ audit() {
     python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
     file="${cloud}_cspm_benchmark.py"
     curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
-    python3 "${file}"
+
+    call_benchmark_script "$CLOUD" "${file}"
 }
 
 check_python3

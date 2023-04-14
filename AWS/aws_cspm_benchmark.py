@@ -4,6 +4,7 @@ aws-cspm-benchmark.py
 Assists with provisioning calculations by retrieving a count of
 all billable resources attached to an AWS account.
 """
+import argparse
 import csv
 import boto3
 from tabulate import tabulate
@@ -26,6 +27,16 @@ totals = {
     'kubenodes_terminated': 0,
     'kubenodes_running': 0
 }
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Analyze AWS accounts and regions for EC2 instances and Kubernetes nodes.")
+    parser.add_argument(
+        "-r", "--role_name",
+        default="OrganizationAccountAccessRole",
+        help="Specify a custom role name to assume into.")
+    return parser.parse_args()
 
 
 class AWSOrgAccess:
@@ -69,7 +80,7 @@ class AWSOrgAccess:
     def new_session(self, account_id):
         try:
             credentials = self.master_sts.assume_role(
-                RoleArn=f'arn:aws:iam::{account_id}:role/OrganizationAccountAccessRole',
+                RoleArn=f'arn:aws:iam::{account_id}:role/{args.role_name}',
                 RoleSessionName=account_id
             )
             return boto3.session.Session(
@@ -131,6 +142,8 @@ class AWSHandle:
 
         return self.acc_id
 
+
+args = parse_args()
 
 for aws in AWSOrgAccess().accounts():
     for region in aws.regions:
