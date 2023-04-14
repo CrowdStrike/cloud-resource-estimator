@@ -61,13 +61,13 @@ is_valid_cloud() {
 call_benchmark_script() {
     local cloud="$1"
     local file="$2"
-    local args=""
+    local args=()
 
     case "$cloud" in
     AWS)
-        [[ -n $AWS_ASSUME_ROLE_NAME ]] && args="-r $AWS_ASSUME_ROLE_NAME"
+        [[ -n $AWS_ASSUME_ROLE_NAME ]] && args+=("-r" "$AWS_ASSUME_ROLE_NAME")
         # Below is how we would pass in additional arguments if needed
-        #[[ -n $AWS_EXAMPLE ]] && args+=" -t $AWS_EXAMPLE"
+        # [[ -n $AWS_EXAMPLE ]] && args+=("-t" "$AWS_EXAMPLE")
         ;;
     Azure)
         ;;
@@ -80,8 +80,7 @@ call_benchmark_script() {
         ;;
     esac
 
-    # python3 "${file}" ${args}
-    echo "python3 ${file} ${args}"
+    python3 "${file}" "${args[@]}"
 }
 
 audit() {
