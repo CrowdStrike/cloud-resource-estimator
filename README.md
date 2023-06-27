@@ -52,7 +52,7 @@ For those who prefer to run the script locally, or would like to run the script 
 1. Download the script:
 
     ```shell
-    curl -O https://raw.githubusercontent.com/CrowdStrike/falcon-benchmark/main/benchmark.sh
+    curl -O https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh
     ```
 
 1. Set execution permissions:
@@ -74,13 +74,13 @@ For those who prefer to run the script locally, or would like to run the script 
 - Run the script against AWS and Azure:
 
     ```shell
-    curl https://raw.githubusercontent.com/CrowdStrike/falcon-benchmark/main/benchmark.sh | bash -s -- aws azure
+    curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash -s -- aws azure
     ```
 
 - Run the script and let it determine the available cloud providers:
 
     ```shell
-    curl https://raw.githubusercontent.com/CrowdStrike/falcon-benchmark/main/benchmark.sh | bash
+    curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
     ```
 
 ## Development
