@@ -13,7 +13,7 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ### Run the script
 
 ```shell
-bash benchmark.sh
+./benchmark.sh
 ```
 
 ### Collect the findings
