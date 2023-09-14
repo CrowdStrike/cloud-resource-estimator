@@ -21,7 +21,7 @@ Open AWS Cloud Shell ([overview](https://aws.amazon.com/cloudshell/), [documenta
 ### Run the script
 
 ```shell
-curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
+curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
 ```
 
 ### Collect the findings
