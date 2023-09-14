@@ -25,7 +25,7 @@ check_python3() {
         echo "Python3 not found. Please install Python3 and try again."
         exit 1
     fi
-    if ! type pip >/dev/null 2>&1; then
+    if ! type pip3 >/dev/null 2>&1; then
         echo "Pip not found. Please install pip and try again."
         exit 1
     fi
