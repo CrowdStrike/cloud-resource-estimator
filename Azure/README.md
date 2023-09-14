@@ -13,7 +13,7 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ### Run the script
 
 ```shell
-curl https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main/benchmark.sh | /bin/bash
+curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
 ```
 
 ### Collect the findings
