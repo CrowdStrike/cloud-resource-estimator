@@ -4,6 +4,26 @@ This script is a read-only utility that counts cloud resources in your AWS accou
 
 No changes will be made to your account. No data will be sent anywhere and will remain in your cloud shell environment.
 
+## How it works
+### Single Account
+When this script runs in an individual AWS Account (ie. not the Organization Management Account), the script will perform the following steps:
+
+- establish session using AWS Identity in CloudShell 
+- check if running in Organization by making requests against the Organization service
+- if this call fails, the script will return "Cannot autodiscover adjacent accounts: cannot list accounts within the AWS organization"
+- gracefully continue to process the resources in the single AWS Account tied to your Identity
+- generate a csv report
+
+### Organization  
+When this script runs in an AWS Organization Management account, the script perform the following steps:  
+
+- establish session using AWS Identity in CloudShell 
+- check if running in Organization by making requests against the Organization service
+- when this call succeeds, generate a list of Account IDs in your Organization
+- foreach Account ID, create a session with the default role OrganizationAccountAccessRole or a custom role if provided
+- process the resources in each account
+- generate a csv report
+
 ## How to use
 
 ### Initialize execution environment
@@ -18,7 +38,7 @@ Open AWS Cloud Shell ([overview](https://aws.amazon.com/cloudshell/), [documenta
 | eu-west-1 | **[Ireland](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** |
 | ap-northeast-1 | **[Tokyo, Japan](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)** |
 
-### Run the script
+### Example
 
 ```shell
 curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
@@ -28,4 +48,10 @@ curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main
 
 ```shell
 cat ./cloud-benchmark/*benchmark.csv
+```
+
+### Provide Custom IAM Role Name
+
+```shell
+export AWS_ASSUME_ROLE_NAME="custom-role-name"
 ```
