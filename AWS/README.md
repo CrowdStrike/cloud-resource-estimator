@@ -5,24 +5,7 @@ This script is a read-only utility that counts cloud resources in your AWS accou
 No changes will be made to your account. No data will be sent anywhere and will remain in your cloud shell environment.
 
 ## How it works
-### Single Account
-When this script runs in an individual AWS Account (ie. not the Organization Management Account), the script will perform the following steps:
-
-- establish session using AWS Identity in CloudShell 
-- check if running in Organization by making requests against the Organization service
-- if this call fails, the script will return "Cannot autodiscover adjacent accounts: cannot list accounts within the AWS organization"
-- gracefully continue to process the resources in the single AWS Account tied to your Identity
-- generate a csv report
-
-### Organization  
-When this script runs in an AWS Organization Management account, the script perform the following steps:  
-
-- establish session using AWS Identity in CloudShell 
-- check if running in Organization by making requests against the Organization service
-- when this call succeeds, generate a list of Account IDs in your Organization
-- foreach Account ID, create a session with the default role OrganizationAccountAccessRole or a custom role if provided
-- process the resources in each account
-- generate a csv report
+This script can run against an individual AWS account or all child accounts in an AWS Organization. When running the script in CloudShell, it will establish the session using the AWS Identity currently signed in. When running the script in your local environment, it will establish the session based on your AWS CLI configuration. Please see [Local Environment Instructions](../README.md) for more details. If your AWS Identity is in the AWS Organization Management account, the script will use the default role OrganizationAccountAccessRole (or custom role if provided) to switch into each child account.  If your AWS Identity is not in an AWS Organization Management account, the script will only process resources in this single account. Upon completion, a CSV report is generated with the findings.
 
 ## How to use
 
