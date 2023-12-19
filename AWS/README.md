@@ -4,6 +4,9 @@ This script is a read-only utility that counts cloud resources in your AWS accou
 
 No changes will be made to your account. No data will be sent anywhere and will remain in your cloud shell environment.
 
+## How it works
+This script can run against an individual AWS account or all child accounts in an AWS Organization. When running the script in CloudShell, it will establish the session using the AWS Identity currently signed in. When running the script in your local environment, it will establish the session based on your AWS CLI configuration. Please see [Local Environment Instructions](../README.md) for more details. If your AWS Identity is in the AWS Organization Management account, the script will use the default role `OrganizationAccountAccessRole` (or custom role if provided) to switch into each child account.  If your AWS Identity is not in an AWS Organization Management account, the script will only process resources in this single account. Upon completion, a CSV report is generated with the findings.
+
 ## How to use
 
 ### Initialize execution environment
@@ -18,7 +21,7 @@ Open AWS Cloud Shell ([overview](https://aws.amazon.com/cloudshell/), [documenta
 | eu-west-1 | **[Ireland](https://eu-west-1.console.aws.amazon.com/cloudshell/home?region=eu-west-1)** |
 | ap-northeast-1 | **[Tokyo, Japan](https://ap-northeast-1.console.aws.amazon.com/cloudshell/home?region=ap-northeast-1)** |
 
-### Run the script
+### Example
 
 ```shell
 curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
@@ -28,4 +31,10 @@ curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main
 
 ```shell
 cat ./cloud-benchmark/*benchmark.csv
+```
+
+### Provide Custom IAM Role Name
+
+```shell
+export AWS_ASSUME_ROLE_NAME="custom-role-name"
 ```
