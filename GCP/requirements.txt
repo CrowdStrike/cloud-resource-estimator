@@ -1,4 +1,5 @@
 google-cloud-compute
+google-cloud-logging
 google-cloud-resource-manager
 google-api-python-client
 oauth2client
