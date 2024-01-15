@@ -9,6 +9,7 @@ import csv
 import logging
 from functools import cached_property
 import google.api_core.exceptions
+from google.cloud import logging_v2
 from google.cloud.resourcemanager import ProjectsClient
 from google.cloud.resourcemanager_v3.types import Project
 from google.cloud import compute
@@ -17,7 +18,7 @@ from googleapiclient import discovery
 
 LOG_LEVEL = logging.INFO
 LOG_LEVEL = logging.DEBUG
-log = logging.getLogger('azure')
+log = logging.getLogger('gcp')
 log.setLevel(LOG_LEVEL)
 ch = logging.StreamHandler()
 ch.setLevel(LOG_LEVEL)
@@ -96,6 +97,27 @@ data = []
 totals = {'project_id': 'totals',
           'kubenodes_running': 0, 'kubenodes_terminated': 0,
           'vms_running': 0, 'vms_terminated': 0}
+
+def get_gcp_logging_details(project):
+    gcp_logging_client = logging_v2.services.config_service_v2.ConfigServiceV2Client()
+    parent = "projects/" + project.project_id
+    rows = []
+    
+    # Initialize request argument(s)
+    request = logging_v2.types.ListSinksRequest(
+	parent=parent,
+    )
+
+    # Make the request
+    page_result = gcp_logging_client.list_sinks(request=request)
+
+    # Handle the response
+    for response in page_result:
+	    row = project.project_id + "," + response.name + "," + response.destination + "," + response.filter
+        rows.append(row)
+
+    return rows
+
 gcp = GCP()
 
 for project in gcp.projects():
@@ -107,7 +129,7 @@ for project in gcp.projects():
                 continue
 
             totals[k] += row[k]
-
+    logging_rows = get_gcp_logging_details(project)
 
 data.append(totals)
 
@@ -117,4 +139,13 @@ with open('gcp-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-log.info("CSV summary has been exported to ./gcp-benchmark.csv file")
+log.info("CSV Resource summary has been exported to ./gcp-benchmark.csv file")
+
+headers = ['project_id', 'sink_name', 'sink_destination', 'sink_filter']
+with open('gcp-logging-config.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
+    csv_writer.writeheader()
+    for log_row in logging_rows:
+        csv_writer.writerow(log_row)
+
+log.info("CSV Logging summary has been exported to ./gcp-logging-config.csv file")
