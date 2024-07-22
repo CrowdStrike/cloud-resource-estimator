@@ -147,7 +147,6 @@ for subscription in az.subscriptions:
     totals['aks_nodes'] += row['aks_nodes']
     totals['aci_containers'] += row['aci_containers']
     
-
 data.append(totals)
 
 headers = ['tenant_id', 'subscription_id', 'aks_nodes', 'vms', 'aci_containers']
