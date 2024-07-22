@@ -8,5 +8,6 @@ azure-identity
 azure-mgmt-resource
 azure-mgmt-containerservice
 azure-mgmt-compute
+azure-mgmt-containerinstance  
 msrestazure
 pyjwt>=2.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
