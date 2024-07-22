@@ -19,7 +19,7 @@ headers = {
     'kubenodes_terminated': "Terminated Kubernetes Nodes",
     'kubenodes_running': "Running Kubernetes Nodes",
     'fargate_profiles': "Active EKS Fargate Profiles",
-    'fargate_tasks': "Active ECS Service Fargate Tasks"
+    'fargate_tasks': "ECS Service Fargate Tasks"
 }
 totals = {
     "region": "TOTAL",
@@ -177,7 +177,6 @@ class AWSHandle:
                     if 'ACTIVE' in response['fargateProfile']['status']:
                         profile_count += 1
         
-        print (profile_count)
         return profile_count
     
     def fargate_tasks(self, aws_region):
