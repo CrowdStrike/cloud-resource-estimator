@@ -7,6 +7,18 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ## How it works
 This script can run against an individual AWS account or all child accounts in an AWS Organization. When running the script in CloudShell, it will establish the session using the AWS Identity currently signed in. When running the script in your local environment, it will establish the session based on your AWS CLI configuration. Please see [Local Environment Instructions](../README.md) for more details. If your AWS Identity is in the AWS Organization Management account, the script will use the default role `OrganizationAccountAccessRole` (or custom role if provided) to switch into each child account.  If your AWS Identity is not in an AWS Organization Management account, the script will only process resources in this single account. Upon completion, a CSV report is generated with the findings.
 
+## Reported Resources
+Reported Resources will include a count of each of the following resource types per AWS Region:  
+
+| Resource | Description |
+| :--- | :--- |
+| Terminated VMs | Terminated EC2 Instances |
+| Running VMs | Running EC2 Instances |
+| Terminated Kubernetes Nodes | Terminated EKS Nodes |
+| Running Kubernetes Nodes | Running EKS Nodes |
+| Active EKS Fargate Profiles | Active EKS Fargate Profiles for each EKS Cluster. Excludes any existing Falcon Profiles eg. fp-falcon* |
+| ECS Service Fargate Tasks | DesiredCount of tasks in Active ECS Services.  Excludes standalone tasks or tasks that are scheduled outside of Services |
+  
 ## How to use
 
 ### Initialize execution environment
