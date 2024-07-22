@@ -17,7 +17,9 @@ headers = {
     "vms_terminated": "Terminated VMs",
     "vms_running": "Running VMs",
     'kubenodes_terminated': "Terminated Kubernetes Nodes",
-    'kubenodes_running': "Running Kubernetes Nodes"
+    'kubenodes_running': "Running Kubernetes Nodes",
+    'fargate_profiles': "Active EKS Fargate Profiles",
+    'fargate_tasks': "Active ECS Service Fargate Tasks"
 }
 totals = {
     "region": "TOTAL",
@@ -25,7 +27,9 @@ totals = {
     "vms_terminated": 0,
     "vms_running": 0,
     'kubenodes_terminated': 0,
-    'kubenodes_running': 0
+    'kubenodes_running': 0,
+    'fargate_profiles': 0,
+    'fargate_tasks': 0
 }
 
 
@@ -141,7 +145,73 @@ class AWSHandle:
             self.acc_id = sts.get_caller_identity()["Account"]
 
         return self.acc_id
+    
+    def fargate_profiles(self, aws_region):
+        profile_count = 0
 
+        client = self.aws_session.client('eks', aws_region)
+
+        response = client.list_clusters(maxResults=100)
+        clusters = response['clusters']
+        next_token = response['NextToken'] if 'NextToken' in response else None
+
+        while next_token:
+            response = client.list_clusters(maxResults=100, NextToken=next_token)
+            clusters += response['clusters']
+            next_token = response['NextToken'] if 'NextToken' in response else None
+
+        for c in clusters:
+            response = client.list_fargate_profiles(clusterName=c,maxResults=100)
+            fargate_profiles = response['fargateProfileNames']
+            next_token = response['NextToken'] if 'NextToken' in response else None
+
+            while next_token:
+                response = client.list_fargate_profiles(clusterName=c,maxResults=100, NextToken=next_token)
+                fargate_profiles += response['fargateProfileNames']
+                next_token = response['NextToken'] if 'NextToken' in response else None
+
+            # Generate profile_count from 'active' Fargate profiles in each EKS Cluster
+            for p in fargate_profiles:
+                if 'fp-falcon' not in p:
+                    response = client.describe_fargate_profile(clusterName=c,fargateProfileName=p)
+                    if 'ACTIVE' in response['fargateProfile']['status']:
+                        profile_count += 1
+        
+        print (profile_count)
+        return profile_count
+    
+    def fargate_tasks(self, aws_region):
+        task_count = 0
+
+        client = self.aws_session.client('ecs', aws_region)
+
+        response = client.list_clusters(maxResults=100)
+        cluster_arns = response['clusterArns']
+        next_token = response['NextToken'] if 'NextToken' in response else None
+
+        while next_token:
+            response = client.list_clusters(maxResults=100, NextToken=next_token)
+            cluster_arns += response['clusterArns']
+            next_token = response['NextToken'] if 'NextToken' in response else None
+
+        for c in cluster_arns:
+            response = client.list_services(cluster=c,maxResults=100,launchType='FARGATE')
+            service_arns = response['serviceArns']
+            next_token = response['NextToken'] if 'NextToken' in response else None
+
+            while next_token:
+                response = client.list_services(cluster=c,launchType='FARGATE')
+                service_arns += response['serviceArns']
+                next_token = response['NextToken'] if 'NextToken' in response else None
+
+            # Generate task_count from 'desiredCount' in each ECS Service definition
+            for a in service_arns:
+                response = client.describe_services(cluster=c,services=a)
+                for s in response['services']:
+                    if 'ACTIVE' in s['status']:
+                        task_count += s['desiredCount']
+
+        return task_count
 
 args = parse_args()
 
@@ -154,7 +224,8 @@ for aws in AWSOrgAccess().accounts():
         # Create the row for our output table
         row = {'account_id': aws.account_id, 'region': RegionName,
                'vms_terminated': 0, 'vms_running': 0,
-               'kubenodes_terminated': 0, 'kubenodes_running': 0}
+               'kubenodes_terminated': 0, 'kubenodes_running': 0,
+               'fargate_profiles': 0, 'fargate_tasks': 0}
 
         # Count ec2 instances
         for reservation in aws.ec2_instances(RegionName):
@@ -164,7 +235,17 @@ for aws in AWSOrgAccess().accounts():
                 key = f"{typ}s_{state}"
                 row[key] += 1
 
-        for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated', 'kubenodes_running']:
+        # Count Fargate Profiles
+        profile_count = aws.fargate_profiles(RegionName)
+        key = "fargate_profiles"
+        row[key] += profile_count
+
+        # Count Fargate Tasks
+        task_count = aws.fargate_tasks(RegionName)
+        key = "fargate_tasks"
+        row[key] += task_count
+
+        for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated', 'kubenodes_running', 'fargate_profiles', 'fargate_tasks']:
             totals[k] += row[k]
 
         # Add the row to our display table
