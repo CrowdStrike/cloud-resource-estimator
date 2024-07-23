@@ -8,9 +8,9 @@ of all billable resources attached to a GCP project.
 import csv
 import logging
 import os
-from tabulate import tabulate
 from functools import cached_property
 from typing import List, Dict, Any
+from tabulate import tabulate
 import google.api_core.exceptions
 from google.cloud.resourcemanager import ProjectsClient
 from google.cloud.resourcemanager_v3.types import Project
@@ -43,7 +43,7 @@ class GCP:
 
     def clusters(self, project_id: str) -> List[Dict[str, Any]]:
         service = discovery.build('container', 'v1')
-        endpoint = service.projects().zones().clusters()
+        endpoint = service.projects().zones().clusters()  # pylint: disable=no-member
         request = endpoint.list(projectId=project_id, zone='-')
         response = request.execute()
         return response.get('clusters', [])
@@ -51,7 +51,7 @@ class GCP:
     def list_cloud_run_services(self, project_id: str) -> List[Dict[str, Any]]:
         service = discovery.build('run', 'v1')
         parent = f"projects/{project_id}/locations/-"
-        request = service.projects().locations().services().list(parent=parent)
+        request = service.projects().locations().services().list(parent=parent)  # pylint: disable=no-member
         response = request.execute()
         return response.get('items', [])
 
@@ -72,20 +72,20 @@ class GCP:
         return cluster.get('autopilot', {}).get('enabled', False)
 
 
-def process_gcp_project(project: Project) -> Dict[str, Any]:
-    if project.state == Project.State.DELETE_REQUESTED:
-        log.debug("Skipping GCP project %s (project pending deletion)", project.display_name)
+def process_gcp_project(gcp_project: Project) -> Dict[str, Any]:
+    if gcp_project.state == Project.State.DELETE_REQUESTED:
+        log.debug("Skipping GCP project %s (project pending deletion)", gcp_project.display_name)
         return {}
 
-    result = {'project_id': project.project_id,
+    result = {'project_id': gcp_project.project_id,
               'kubenodes_running': 0, 'kubenodes_terminated': 0,
               'vms_running': 0, 'vms_terminated': 0,
               'autopilot_clusters': 0, 'cloud_run_services': 0}
-    log.info("Processing GCP project: %s", project.display_name)
+    log.info("Processing GCP project: %s", gcp_project.display_name)
 
-    fail_safe(count_instances, project, result)
-    fail_safe(count_autopilot_clusters, project, result)
-    fail_safe(count_cloud_run_services, project, result)
+    fail_safe(count_instances, gcp_project, result)
+    fail_safe(count_autopilot_clusters, gcp_project, result)
+    fail_safe(count_cloud_run_services, gcp_project, result)
 
     return result
 
@@ -106,7 +106,7 @@ def fail_safe(count_func, *args) -> None:
             service_name = get_service_disabled_name(exc)
             if service_name:
                 service_disabled_calls.append((project.project_id, service_name))
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-except
         log.error("Unexpected error for project: %s: %s", project.display_name, exc)
 
 
@@ -117,21 +117,21 @@ def get_service_disabled_name(exc: HttpError) -> str:
     return None
 
 
-def generate_gcloud_commands(service_disabled_calls: List[str]) -> List[str]:
+def generate_gcloud_commands(sd_calls: List[str]) -> List[str]:
     commands = []
-    for project_id, service_name in service_disabled_calls:
+    for project_id, service_name in sd_calls:
         commands.append(f"gcloud services enable {service_name} --project {project_id}")
     return commands
 
 
-def count_autopilot_clusters(project: Project, result: Dict[str, int]):
-    for cluster in gcp.clusters(project.project_id):
+def count_autopilot_clusters(gcp_project: Project, result: Dict[str, int]):
+    for cluster in gcp.clusters(gcp_project.project_id):
         if GCP.is_cluster_autopilot(cluster):
             result['autopilot_clusters'] += 1
 
 
-def count_instances(project: Project, result: Dict[str, int]):
-    for _zone, response in gcp.list_instances(project.project_id):
+def count_instances(gcp_project: Project, result: Dict[str, int]):
+    for _zone, response in gcp.list_instances(gcp_project.project_id):
         if response.instances:
             for instance in response.instances:
                 typ = 'kubenode' if GCP.is_vm_kubenode(instance) else 'vm'
@@ -140,8 +140,8 @@ def count_instances(project: Project, result: Dict[str, int]):
                 result[key] += 1
 
 
-def count_cloud_run_services(project: Project, result: Dict[str, int]):
-    services = gcp.list_cloud_run_services(project.project_id)
+def count_cloud_run_services(gcp_project: Project, result: Dict[str, int]):
+    services = gcp.list_cloud_run_services(gcp_project.project_id)
     result['cloud_run_services'] = len(services)
 
 
@@ -166,7 +166,7 @@ gcp = GCP()
 projects = gcp.projects()
 if not projects:
     log.error("No GCP projects found")
-    exit()
+    exit(1)  # pylint: disable=consider-using-sys-exit
 
 for project in gcp.projects():
     row = process_gcp_project(project)
