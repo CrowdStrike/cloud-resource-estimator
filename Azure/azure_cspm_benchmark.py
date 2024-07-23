@@ -25,6 +25,7 @@ headers = {
     'aci_containers': 'Container Instances'
 }
 
+
 class AzureHandle:
     def __init__(self):
         # Acquire a credential object using CLI-based authentication.
