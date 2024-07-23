@@ -15,7 +15,15 @@ from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 import msrestazure.tools
+from tabulate import tabulate
 
+headers = {
+    'tenant_id': 'Azure Tenant ID',
+    'subscription_id': 'Azure Subscription ID',
+    'aks_nodes': 'Kubernetes Nodes',
+    'vms': 'Virtual Machines',
+    'aci_containers': 'Container Instances'
+}
 
 class AzureHandle:
     def __init__(self):
@@ -148,9 +156,11 @@ for subscription in az.subscriptions:
 
 data.append(totals)
 
-headers = ['tenant_id', 'subscription_id', 'aks_nodes', 'vms', 'aci_containers']
+# Output our results
+print(tabulate(data, headers=headers, tablefmt="grid"))
+
 with open('az-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
-    csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
+    csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
