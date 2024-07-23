@@ -1,4 +1,6 @@
 google-cloud-compute
+google-cloud-run
 google-cloud-resource-manager
 google-api-python-client
 oauth2client
+tabulate
