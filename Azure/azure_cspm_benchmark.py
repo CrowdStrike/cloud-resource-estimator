@@ -126,7 +126,7 @@ for subscription in az.subscriptions:
     for aks in az.aks_resources(subscription.subscription_id):
         for node_pool in az.container_vmss(aks):
             log.info("Identified node pool: '%s' within AKS: '%s' with %d node(s)",
-                      node_pool.name, aks.name, node_pool.count)
+                     node_pool.name, aks.name, node_pool.count)
             row['aks_nodes'] += node_pool.count
 
     # (2) Process VMSS
