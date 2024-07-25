@@ -55,6 +55,13 @@ class GCP:
         response = request.execute()
         return response.get('items', [])
 
+    def list_cloud_run_jobs(self, project_id: str) -> List[Dict[str, Any]]:
+        service = discovery.build('run', 'v1')
+        parent = f'namespaces/{project_id}'
+        request = service.namespaces().jobs().list(parent=parent)  # pylint: disable=no-member
+        response = request.execute()
+        return response.get('items', [])
+
     @cached_property
     def instances_client(self) -> compute.InstancesClient:
         return compute.InstancesClient()
@@ -80,12 +87,14 @@ def process_gcp_project(gcp_project: Project) -> Dict[str, Any]:
     result = {'project_id': gcp_project.project_id,
               'kubenodes_running': 0, 'kubenodes_terminated': 0,
               'vms_running': 0, 'vms_terminated': 0,
-              'autopilot_clusters': 0, 'cloud_run_services': 0}
+              'autopilot_clusters': 0, 'cloud_run_services': 0,
+              'cloud_run_jobs': 0}
     log.info("Processing GCP project: %s", gcp_project.display_name)
 
     fail_safe(count_instances, gcp_project, result)
     fail_safe(count_autopilot_clusters, gcp_project, result)
     fail_safe(count_cloud_run_services, gcp_project, result)
+    fail_safe(count_cloud_run_jobs, gcp_project, result)
 
     return result
 
@@ -145,6 +154,11 @@ def count_cloud_run_services(gcp_project: Project, result: Dict[str, int]):
     result['cloud_run_services'] = len(services)
 
 
+def count_cloud_run_jobs(gcp_project: Project, result: Dict[str, int]):
+    jobs = gcp.list_cloud_run_jobs(gcp_project.project_id)
+    result['cloud_run_jobs'] = len(jobs)
+
+
 data = []
 headers = {
     'project_id': 'Project ID',
@@ -153,12 +167,14 @@ headers = {
     'vms_running': 'VMs Running',
     'vms_terminated': 'VMs Terminated',
     'autopilot_clusters': 'Autopilot Clusters',
-    'cloud_run_services': 'Cloud Run Services'
+    'cloud_run_services': 'Cloud Run Services',
+    'cloud_run_jobs': 'Cloud Run Jobs'
 }
 totals = {'project_id': 'totals',
           'kubenodes_running': 0, 'kubenodes_terminated': 0,
           'vms_running': 0, 'vms_terminated': 0,
-          'autopilot_clusters': 0, 'cloud_run_services': 0}
+          'autopilot_clusters': 0, 'cloud_run_services': 0,
+          'cloud_run_jobs': 0}
 service_disabled_calls = []
 
 gcp = GCP()
@@ -192,6 +208,6 @@ if service_disabled_calls:
     log.warning("There were some projects with disabled services that may lead to inaccurate results.")
     log.warning("A list of gcloud commands to enable the services has been exported to ./disabled-services.txt")
     with open('disabled-services.txt', 'w', encoding='utf-8') as f:
-        gcloud_commands = generate_gcloud_commands(service_disabled_calls)
+        gcloud_commands = list(set(generate_gcloud_commands(service_disabled_calls)))
         for cmd in gcloud_commands:
             f.write(cmd + '\n')
