@@ -78,17 +78,24 @@ class GCP:
     def is_cluster_autopilot(cls, cluster: Dict[str, Any]) -> bool:
         return cluster.get('autopilot', {}).get('enabled', False)
 
+    @classmethod
+    def get_autopilot_active_nodes(cls, cluster: Dict[str, Any]) -> int:
+        return cluster.get('currentNodeCount', 0)
+
 
 def process_gcp_project(gcp_project: Project) -> Dict[str, Any]:
     if gcp_project.state == Project.State.DELETE_REQUESTED:
-        log.debug("Skipping GCP project %s (project pending deletion)", gcp_project.display_name)
+        log.info("Skipping GCP project %s (project pending deletion)", gcp_project.display_name)
         return {}
 
-    result = {'project_id': gcp_project.project_id,
-              'kubenodes_running': 0, 'kubenodes_terminated': 0,
-              'vms_running': 0, 'vms_terminated': 0,
-              'autopilot_clusters': 0, 'cloud_run_services': 0,
-              'cloud_run_jobs': 0}
+    result = {
+        'project_id': gcp_project.project_id,
+        'kubenodes_running': 0, 'kubenodes_terminated': 0,
+        'vms_running': 0, 'vms_terminated': 0,
+        'autopilot_clusters': 0, 'autopilot_nodes': 0,
+        'cloud_run_services': 0, 'cloud_run_jobs': 0
+    }
+
     log.info("Processing GCP project: %s", gcp_project.display_name)
 
     fail_safe(count_instances, gcp_project, result)
@@ -103,20 +110,35 @@ def fail_safe(count_func, *args) -> None:
     try:
         count_func(*args)
     except google.api_core.exceptions.Forbidden as exc:
-        log.warning("Cannot explore project: %s: %s", project.display_name, exc)
         if 'Compute Engine API has not been used' in str(exc):
-            service_disabled_calls.append((project.project_id, 'compute.googleapis.com'))
-    except google.api_core.exceptions.GoogleAPIError as exc:
-        log.warning("Google API error for project: %s: %s", project.display_name, exc)
+            log_warning('compute.googleapis.com', project.display_name)
+            add_message(project.project_id, exc.errors[0]['message'])
+        else:
+            log.error("Unexpected error for project: %s: %s", project.display_name, exc)
     except HttpError as exc:
         if exc.status_code == 403 and 'SERVICE_DISABLED' in str(exc):
-            log.warning("The required API is not enabled for the project: %s: %s",
-                        project.display_name, exc.reason)
-            service_name = get_service_disabled_name(exc)
-            if service_name:
-                service_disabled_calls.append((project.project_id, service_name))
+            log_warning(get_service_disabled_name(exc), project.display_name)
+            add_message(project.project_id, exc.reason)
+        else:
+            log.error("Unexpected error for project: %s: %s", project.display_name, exc)
     except Exception as exc:  # pylint: disable=broad-except
         log.error("Unexpected error for project: %s: %s", project.display_name, exc)
+
+
+def log_warning(api: str, project_name: str) -> None:
+    api_names = {
+        'compute.googleapis.com': 'Compute Engine',
+        'container.googleapis.com': 'Kubernetes Engine',
+        'run.googleapis.com': 'Cloud Run',
+    }
+    message = f"Unable to process {api_names[api]} API for project: {project_name}."
+    log.warning(message)
+
+
+def add_message(project_id: str, message: str) -> None:
+    if project_id not in service_disabled_calls:
+        service_disabled_calls[project_id] = []
+    service_disabled_calls[project_id].append(message)
 
 
 def get_service_disabled_name(exc: HttpError) -> str:
@@ -126,17 +148,11 @@ def get_service_disabled_name(exc: HttpError) -> str:
     return None
 
 
-def generate_gcloud_commands(sd_calls: List[str]) -> List[str]:
-    commands = []
-    for project_id, service_name in sd_calls:
-        commands.append(f"gcloud services enable {service_name} --project {project_id}")
-    return commands
-
-
 def count_autopilot_clusters(gcp_project: Project, result: Dict[str, int]):
     for cluster in gcp.clusters(gcp_project.project_id):
         if GCP.is_cluster_autopilot(cluster):
             result['autopilot_clusters'] += 1
+            result['autopilot_nodes'] += GCP.get_autopilot_active_nodes(cluster)
 
 
 def count_instances(gcp_project: Project, result: Dict[str, int]):
@@ -160,22 +176,25 @@ def count_cloud_run_jobs(gcp_project: Project, result: Dict[str, int]):
 
 
 data = []
+service_disabled_calls = {}
 headers = {
     'project_id': 'Project ID',
-    'kubenodes_running': 'Kube Nodes Running',
-    'kubenodes_terminated': 'Kube Nodes Terminated',
-    'vms_running': 'VMs Running',
-    'vms_terminated': 'VMs Terminated',
+    'kubenodes_running': 'K8s Nodes (Running)',
+    'kubenodes_terminated': 'K8s Nodes (Terminated)',
+    'vms_running': 'VMs (Running)',
+    'vms_terminated': 'VMs (Terminated)',
     'autopilot_clusters': 'Autopilot Clusters',
+    'autopilot_nodes': 'Autopilot Nodes (Running)',
     'cloud_run_services': 'Cloud Run Services',
     'cloud_run_jobs': 'Cloud Run Jobs'
 }
-totals = {'project_id': 'totals',
-          'kubenodes_running': 0, 'kubenodes_terminated': 0,
-          'vms_running': 0, 'vms_terminated': 0,
-          'autopilot_clusters': 0, 'cloud_run_services': 0,
-          'cloud_run_jobs': 0}
-service_disabled_calls = []
+totals = {
+    'project_id': 'totals',
+    'kubenodes_running': 0, 'kubenodes_terminated': 0,
+    'vms_running': 0, 'vms_terminated': 0,
+    'autopilot_clusters': 0, 'autopilot_nodes': 0,
+    'cloud_run_services': 0, 'cloud_run_jobs': 0
+}
 
 gcp = GCP()
 
@@ -195,19 +214,26 @@ for project in gcp.projects():
 data.append(totals)
 
 # Output our results
-print(tabulate(data, headers=headers, tablefmt="grid"))
+print(tabulate(data, headers=headers, tablefmt="grid", maxheadercolwidths=[10, 15, 15, 10, 15, 15, 15, 15, 12]))
 
 with open('gcp-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-log.info("CSV summary has been exported to ./gcp-benchmark.csv file")
+log.info("CSV file saved to: ./gcp-benchmark.csv")
 
 if service_disabled_calls:
-    log.warning("There were some projects with disabled services that may lead to inaccurate results.")
-    log.warning("A list of gcloud commands to enable the services has been exported to ./disabled-services.txt")
-    with open('disabled-services.txt', 'w', encoding='utf-8') as f:
-        gcloud_commands = list(set(generate_gcloud_commands(service_disabled_calls)))
-        for cmd in gcloud_commands:
-            f.write(cmd + '\n')
+    MSG = (
+        "Some API service calls were disabled, preventing data processing. "
+        "These calls might be intentionally disabled in your environment. "
+        "More details have been saved to: ./api-exceptions.txt"
+    )
+    log.warning(MSG)
+
+    with open('api-exceptions.txt', 'w', encoding='utf-8') as f:
+        for project, messages in service_disabled_calls.items():
+            f.write(f"Project ID: {project}\n")
+            for msg in set(messages):
+                f.write(f"- {msg}\n")
+            f.write('\n')
