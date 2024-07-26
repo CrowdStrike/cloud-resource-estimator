@@ -225,9 +225,9 @@ log.info("CSV file saved to: ./gcp-benchmark.csv")
 
 if service_disabled_calls:
     MSG = (
-        "Some API service calls were disabled, preventing data processing. "
-        "These calls might be intentionally disabled in your environment. "
-        "More details have been saved to: ./api-exceptions.txt"
+        "Some API service calls were disabled in certain projects, preventing data processing. "
+        "These APIs might be intentionally disabled in your environment. "
+        "Details have been captured and saved to: ./api-exceptions.txt for your review."
     )
     log.warning(MSG)
 
