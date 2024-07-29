@@ -227,11 +227,11 @@ if service_disabled_calls:
     MSG = (
         "Some API service calls were disabled in certain projects, preventing data processing. "
         "These APIs might be intentionally disabled in your environment. "
-        "Details have been captured and saved to: ./api-exceptions.txt for your review."
+        "Details have been captured and saved to: ./gcp-exceptions.txt for your review."
     )
     log.warning(MSG)
 
-    with open('api-exceptions.txt', 'w', encoding='utf-8') as f:
+    with open('gcp-exceptions.txt', 'w', encoding='utf-8') as f:
         for project, messages in service_disabled_calls.items():
             f.write(f"Project ID: {project}\n")
             for msg in set(messages):
