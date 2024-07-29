@@ -13,7 +13,17 @@ from azure.identity import AzureCliCredential
 from azure.mgmt.resource import ResourceManagementClient, SubscriptionClient
 from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 import msrestazure.tools
+from tabulate import tabulate
+
+headers = {
+    'tenant_id': 'Azure Tenant ID',
+    'subscription_id': 'Azure Subscription ID',
+    'aks_nodes': 'Kubernetes Nodes',
+    'vms': 'Virtual Machines',
+    'aci_containers': 'Container Instances'
+}
 
 
 class AzureHandle:
@@ -28,6 +38,10 @@ class AzureHandle:
     @property
     def tenants(self):
         return list(self.subscription_client.tenants.list())
+
+    def aci_resources(self, subscription_id):
+        client = self.resource_client(subscription_id)
+        return client.resources.list(filter="resourceType eq 'microsoft.containerinstance/containergroups'")
 
     def aks_resources(self, subscription_id):
         client = self.resource_client(subscription_id)
@@ -53,6 +67,12 @@ class AzureHandle:
         return client.agent_pools.list(resource_group_name=parsed_id['resource_group'],
                                        resource_name=parsed_id['resource_name'])
 
+    def container_aci(self, aci_resource):
+        parsed_id = msrestazure.tools.parse_resource_id(aci_resource.id)
+        client = self.container_instance_client(parsed_id['subscription'])
+        return client.container_groups.get(resource_group_name=parsed_id['resource_group'],
+                                           container_group_name=parsed_id['resource_name']).containers
+
     def vms_inside_vmss(self, vmss_resource):
         parsed_id = msrestazure.tools.parse_resource_id(vmss_resource.id)
         client = ComputeManagementClient(self.creds, parsed_id['subscription'])
@@ -62,6 +82,10 @@ class AzureHandle:
     @lru_cache
     def container_client(self, subscription_id):
         return ContainerServiceClient(self.creds, subscription_id)
+
+    @lru_cache
+    def container_instance_client(self, subscription_id):
+        return ContainerInstanceManagementClient(self.creds, subscription_id)
 
     @lru_cache
     def resource_client(self, subscription_id):
@@ -87,22 +111,22 @@ for mod in ['azure.identity._internal.decorators', 'azure.core.pipeline.policies
 
 
 data = []
-totals = {'tenant_id': 'totals', 'subscription_id': 'totals', 'aks_nodes': 0, 'vms': 0}
+totals = {'tenant_id': 'totals', 'subscription_id': 'totals', 'aks_nodes': 0, 'vms': 0, 'aci_containers': 0}
 az = AzureHandle()
 
 log.info("You have access to %d subscription(s) within %s tenant(s)", len(az.subscriptions), len(az.tenants))
 for subscription in az.subscriptions:
     row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
-           'aks_nodes': 0, 'vms': 0}
-    log.info("Exploring Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
+           'aks_nodes': 0, 'vms': 0, 'aci_containers': 0}
+    log.info("Processing Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
 
     vmss_list = list(az.vmss_resources(subscription.subscription_id))
 
     # (1) Process AKS
     for aks in az.aks_resources(subscription.subscription_id):
         for node_pool in az.container_vmss(aks):
-            log.debug("Identified node pool: '%s' within AKS: '%s' with %d node(s)",
-                      node_pool.name, aks.name, node_pool.count)
+            log.info("Identified node pool: '%s' within AKS: '%s' with %d node(s)",
+                     node_pool.name, aks.name, node_pool.count)
             row['aks_nodes'] += node_pool.count
 
     # (2) Process VMSS
@@ -112,23 +136,32 @@ for subscription in az.subscriptions:
             continue
 
         vm_count = sum(1 for vm in az.vms_inside_vmss(vmss))
-        log.debug("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
+        log.info("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
         row['vms'] += vm_count
 
-    # (3) Process VMs
+    # # (3) Process ACI
+    for aci in az.aci_resources(subscription.subscription_id):
+        container_count = sum(1 for container in az.container_aci(aci))
+        log.info("Identified %d container resource(s) inside Container Group: '%s'", container_count, aci.name)
+        row['aci_containers'] += container_count
+
+    # (4) Process VMs
     vm_count = sum((1 for vm in az.vms_resources(subscription.subscription_id)))
-    log.debug('Identified %d vm resource(s) outside of Scale Sets', vm_count)
+    log.info('Identified %d vm resource(s) outside of Scale Sets', vm_count)
     row['vms'] += vm_count
     data.append(row)
 
     totals['vms'] += row['vms']
     totals['aks_nodes'] += row['aks_nodes']
+    totals['aci_containers'] += row['aci_containers']
 
 data.append(totals)
 
-headers = ['tenant_id', 'subscription_id', 'aks_nodes', 'vms']
+# Output our results
+print(tabulate(data, headers=headers, tablefmt="grid"))
+
 with open('az-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
-    csv_writer = csv.DictWriter(csv_file, fieldnames=headers)
+    csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
