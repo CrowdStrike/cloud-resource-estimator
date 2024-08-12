@@ -205,7 +205,7 @@ class AWSHandle:
 
             # Generate active_tasks from 'desiredCount' in each ECS Service definition
             for a in service_arns:
-                response = client.describe_services(cluster=c, services=a)
+                response = client.describe_services(cluster=c, services=[a])
                 for s in response['services']:
                     if 'ACTIVE' in s['status']:
                         active_tasks += s['desiredCount']
