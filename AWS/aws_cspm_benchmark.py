@@ -40,6 +40,10 @@ def parse_args():
         "-r", "--role_name",
         default="OrganizationAccountAccessRole",
         help="Specify a custom role name to assume into.")
+    parser.add_argument(
+        "-t", "--target_ou",
+        default=None,
+        help="Specify AWS OUs to limit scope.")
     return parser.parse_args()
 
 
@@ -49,17 +53,28 @@ class AWSOrgAccess:
         self.master_sts = self.master_session.client('sts')
         self.master_account_id = self.master_sts.get_caller_identity()["Account"]
 
-    def accounts(self):
+    def accounts(self, target_ou):
         try:
-            client = boto3.client('organizations')
-            response = client.list_accounts()
-            accounts = response['Accounts']
-            next_token = response.get('NextToken', None)
+            if target_ou:
+                    client = boto3.client('organizations')
+                    response = client.list_accounts_for_parent(ParentId=target_ou)
+                    accounts = response['Accounts']
+                    next_token = response.get('NextToken', None)
 
-            while next_token:
-                response = client.list_accounts(NextToken=next_token)
-                accounts += response['Accounts']
+                    while next_token:
+                        response = client.list_accounts(ParentId=target_ou, NextToken=next_token)
+                        accounts += response['Accounts']
+                        next_token = response.get('NextToken', None)
+            else:
+                client = boto3.client('organizations')
+                response = client.list_accounts()
+                accounts = response['Accounts']
                 next_token = response.get('NextToken', None)
+
+                while next_token:
+                    response = client.list_accounts(NextToken=next_token)
+                    accounts += response['Accounts']
+                    next_token = response.get('NextToken', None)
 
             # We only want accounts that are in ACTIVE state
             # Permissable values are: 'ACTIVE'|'SUSPENDED'|'PENDING_CLOSURE'
@@ -215,7 +230,7 @@ class AWSHandle:
 
 args = parse_args()
 
-for aws in AWSOrgAccess().accounts():
+for aws in AWSOrgAccess().accounts(args.target_ou):
     for region in aws.regions:
         RegionName = region["RegionName"]
 
@@ -257,12 +272,12 @@ data.append(totals)
 # Output our results
 print(tabulate(data, headers=headers, tablefmt="grid"))
 
-with open('aws-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+with open(f'aws-benchmark-{args.target_ou}.csv', 'w', newline='', encoding='utf-8') as csv_file:
     csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
     csv_writer.writeheader()
     csv_writer.writerows(data)
 
-print("\nCSV file stored in: ./aws-benchmark.csv\n\n")
+print(f"\nCSV file stored in: ./aws-benchmark-{args.target_ou}.csv\n\n")
 
 
 #     .wwwwwwww.
