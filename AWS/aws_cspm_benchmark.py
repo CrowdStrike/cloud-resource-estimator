@@ -62,7 +62,7 @@ class AWSOrgAccess:
                     next_token = response.get('NextToken', None)
 
                     while next_token:
-                        response = client.list_accounts(ParentId=target_ou, NextToken=next_token)
+                        response = client.list_accounts_for_parent(ParentId=target_ou, NextToken=next_token)
                         accounts += response['Accounts']
                         next_token = response.get('NextToken', None)
             else:
