@@ -73,7 +73,7 @@ class GCP:
 
         if instance.labels:
             gke_indicators = ["goog-gke-node", "gke-cluster", "k8s-", "kubernetes"]
-            for key, value in instance.labels.items():
+            for key, _ in instance.labels.items():
                 if any(indicator in key.lower() for indicator in gke_indicators):
                     return True
 
