@@ -171,9 +171,10 @@ def validate_and_adjust_kube_counts(gcp_project: Project, result: Dict[str, Any]
         if gcp_project.project_id in service_disabled_calls:
             api_errors = service_disabled_calls[gcp_project.project_id]
             if any("container" in err.lower() for err in api_errors):
-                log.debug(
+                message = (
                     f"Skipping validation for project {gcp_project.project_id} due to container API access issues"
                 )
+                log.debug(message)
                 return
 
         standard_node_count = 0
@@ -186,16 +187,18 @@ def validate_and_adjust_kube_counts(gcp_project: Project, result: Dict[str, Any]
         if standard_node_count > detected_nodes:
 
             discrepancy = standard_node_count - detected_nodes
-            log.warning(
+            message = (
                 f"Project {gcp_project.project_id}: GKE API reports {standard_node_count} nodes, "
                 f"but only {detected_nodes} were detected via instance metadata. "
                 f"Adjusting count to {standard_node_count} (added {discrepancy} nodes)"
             )
+            log.warning(message)
 
             result["kubenodes_running"] = standard_node_count
 
     except Exception as e:  # pylint: disable=broad-except
-        log.error(f"Error validating node counts for project {gcp_project.project_id}: {str(e)}")
+        message = f"Error validating node counts for project {gcp_project.project_id}: {str(e)}"
+        log.error(message)
 
 
 def count_autopilot_clusters(gcp_project: Project, result: Dict[str, int]):
