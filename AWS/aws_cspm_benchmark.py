@@ -113,13 +113,10 @@ class AWSHandle:
 
     @property
     def regions(self):
-        regions = []
-        try:
-            response = self.ec2.describe_regions()
-            regions = [region['RegionName'] for region in response['Regions']]
-        except Exception as e:
-            print(f"Error getting regions: {e}")
-        return regions
+        active_regions = []
+        response = self.ec2.describe_regions()
+        active_regions = [region['RegionName'] for region in response['Regions']]
+        return active_regions
 
     def ec2_instances(self, aws_region):
         client = self.aws_session.client('ec2', aws_region)
