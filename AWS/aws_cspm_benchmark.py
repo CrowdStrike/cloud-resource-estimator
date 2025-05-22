@@ -7,6 +7,7 @@ all billable resources attached to an AWS account.
 import argparse
 import csv
 import boto3
+import botocore
 from tabulate import tabulate
 
 
@@ -71,6 +72,9 @@ class AWSOrgAccess:
             return [self.aws_handle(a) for a in active_accounts if self.aws_handle(a)]
         except client.exceptions.AccessDeniedException:
             print("Cannot autodiscover adjacent accounts: cannot list accounts within the AWS organization")
+            return [AWSHandle()]
+        except client.exceptions.AWSOrganizationsNotInUseException:
+            print("This account is not a member of an AWS Organization")
             return [AWSHandle()]
 
     def aws_handle(self, account):
@@ -237,22 +241,29 @@ for aws in AWSOrgAccess().accounts():
                'fargate_profiles': 0, 'fargate_tasks': 0}
 
         # Count ec2 instances
-        for reservation in aws.ec2_instances(RegionName):
-            for instance in reservation['Instances']:
-                typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
-                state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
-                key = f"{typ}s_{state}"
-                row[key] += 1
-
-        # Count Fargate Profiles
-        profile_count = aws.fargate_profiles(RegionName)
-        key = "fargate_profiles"
-        row[key] += profile_count
-
-        # Count Fargate Tasks
-        task_count = aws.fargate_tasks(RegionName)
-        key = "fargate_tasks"
-        row[key] += task_count
+        try:
+            for reservation in aws.ec2_instances(RegionName):
+                for instance in reservation['Instances']:
+                    typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
+                    state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
+                    key = f"{typ}s_{state}"
+                    row[key] += 1
+        except botocore.exceptions.ClientError as e:
+            print(e)
+        try:
+            # Count Fargate Profiles
+            profile_count = aws.fargate_profiles(RegionName)
+            key = "fargate_profiles"
+            row[key] += profile_count
+        except botocore.exceptions.ClientError as e:
+            print(e)
+        try:
+            # Count Fargate Tasks
+            task_count = aws.fargate_tasks(RegionName)
+            key = "fargate_tasks"
+            row[key] += task_count
+        except botocore.exceptions.ClientError as e:
+            print(e)
 
         for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated',
                   'kubenodes_running', 'fargate_profiles', 'fargate_tasks']:
