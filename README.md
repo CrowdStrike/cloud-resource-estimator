@@ -13,11 +13,13 @@ The `benchmark.sh` entrypoint script helps you to perform sizing calculations fo
 The script recognizes the following environmental variables:
 
 - `AWS_ASSUME_ROLE_NAME`: The name of the AWS role to assume (optional)
+- `AWS_REGIONS`: The name of the AWS Region to target or a comma-delimited list of AWS Regions to target (optional)
 
 To use, please export the variable in your environment prior to running the script:
 
 ```shell
-export ENV_VARIABLE="Example-Value"
+export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
+export AWS_REGIONS="us-east-1,us-east-2"
 ```
 
 ***Usage:***

@@ -40,6 +40,9 @@ def parse_args():
         "-r", "--role_name",
         default="OrganizationAccountAccessRole",
         help="Specify a custom role name to assume into.")
+    parser.add_argument(
+        "-R", "--regions",
+        help="Specify which AWS regions to analyze.")
     return parser.parse_args()
 
 
@@ -110,7 +113,13 @@ class AWSHandle:
 
     @property
     def regions(self):
-        return self.ec2.describe_regions()['Regions']
+        regions = []
+        try:
+            response = self.ec2.describe_regions()
+            regions = [region['RegionName'] for region in response['Regions']]
+        except Exception as e:
+            print(f"Error getting regions: {e}")
+        return regions
 
     def ec2_instances(self, aws_region):
         client = self.aws_session.client('ec2', aws_region)
@@ -216,8 +225,11 @@ class AWSHandle:
 args = parse_args()
 
 for aws in AWSOrgAccess().accounts():
-    for region in aws.regions:
-        RegionName = region["RegionName"]
+    if args.regions:
+        regions = [x.strip() for x in args.regions.split(',')]
+    else:
+        regions = aws.regions
+    for RegionName in regions:
 
         # Setup the branch
         print(f"Processing {RegionName}")

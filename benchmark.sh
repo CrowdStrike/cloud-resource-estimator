@@ -16,7 +16,8 @@ usage() {
 
     The script recognizes the following environment variables:
 
-        - AWS_ASSUME_ROLE_NAME: The name of the AWS role to assume (optional)"""
+        - AWS_ASSUME_ROLE_NAME: The name of the AWS role to assume (optional)
+        - AWS_REGIONS: The name of the AWS Region to target or a comma-delimited list of AWS Regions to target (optional)"""
 }
 
 # Check if the system has Python3 and pip installed
@@ -66,6 +67,7 @@ call_benchmark_script() {
     case "$cloud" in
     AWS)
         [[ -n $AWS_ASSUME_ROLE_NAME ]] && args+=("-r" "$AWS_ASSUME_ROLE_NAME")
+        [[ -n $AWS_REGIONS ]] && args+=("-R" "$AWS_REGIONS")
         # Below is how we would pass in additional arguments if needed
         # [[ -n $AWS_EXAMPLE ]] && args+=("-t" "$AWS_EXAMPLE")
         ;;
