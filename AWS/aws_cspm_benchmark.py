@@ -1,4 +1,3 @@
-# noqa: C901
 """
 aws-cspm-benchmark.py
 
@@ -226,7 +225,7 @@ class AWSHandle:
 
 args = parse_args()
 
-for aws in AWSOrgAccess().accounts():
+for aws in AWSOrgAccess().accounts():  # noqa: C901
     if args.regions:
         regions = [x.strip() for x in args.regions.split(',')]
     else:
