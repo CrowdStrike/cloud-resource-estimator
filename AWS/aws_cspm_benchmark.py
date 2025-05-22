@@ -1,3 +1,4 @@
+# noqa: C901
 """
 aws-cspm-benchmark.py
 
