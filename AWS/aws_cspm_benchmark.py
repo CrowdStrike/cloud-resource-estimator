@@ -6,12 +6,12 @@ all billable resources attached to an AWS account.
 """
 import argparse
 import csv
-import boto3
-import botocore
-from tabulate import tabulate
 import concurrent.futures
 import threading
 import time
+import boto3
+import botocore
+from tabulate import tabulate
 
 
 data = []
@@ -345,7 +345,9 @@ def process_account(aws_handle, regions_to_process, max_workers=5):
         for future in concurrent.futures.as_completed(region_futures):
             try:
                 future.result()  # This will raise any exceptions that occurred
-            except Exception as e:
+            except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError,
+                    concurrent.futures.TimeoutError, concurrent.futures.CancelledError,
+                    RuntimeError) as e:
                 print(f"Error processing region: {e}")
 
 
@@ -377,7 +379,9 @@ def main():
         for future in concurrent.futures.as_completed(account_futures):
             try:
                 future.result()  # This will raise any exceptions that occurred
-            except Exception as e:
+            except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError,
+                    concurrent.futures.TimeoutError, concurrent.futures.CancelledError,
+                    RuntimeError) as e:
                 print(f"Error processing account: {e}")
 
     # Add totals row
