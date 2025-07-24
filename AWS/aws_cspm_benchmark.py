@@ -9,6 +9,9 @@ import csv
 import boto3
 import botocore
 from tabulate import tabulate
+import concurrent.futures
+import threading
+import time
 
 
 data = []
@@ -44,6 +47,11 @@ def parse_args():
     parser.add_argument(
         "-R", "--regions",
         help="Specify which AWS regions to analyze.")
+    parser.add_argument(
+        "-t", "--threads",
+        type=int,
+        default=10,
+        help="Number of worker threads for parallel processing (default: 10).")
     return parser.parse_args()
 
 
@@ -223,66 +231,179 @@ class AWSHandle:
         return active_tasks
 
 
-args = parse_args()
+# Thread-safe data structures
+data_lock = threading.Lock()
+totals_lock = threading.Lock()
 
-for aws in AWSOrgAccess().accounts():  # noqa: C901
-    if args.regions:
-        regions = [x.strip() for x in args.regions.split(',')]
-    else:
-        regions = aws.regions
-    for RegionName in regions:
 
-        # Setup the branch
-        print(f"Processing {RegionName}")
-        # Create the row for our output table
-        row = {'account_id': aws.account_id, 'region': RegionName,
-               'vms_terminated': 0, 'vms_running': 0,
-               'kubenodes_terminated': 0, 'kubenodes_running': 0,
-               'fargate_profiles': 0, 'fargate_tasks': 0}
+def process_ec2_instances(aws_handle, region_name):
+    """Process EC2 instances for a specific region"""
+    vms_terminated = 0
+    vms_running = 0
+    kubenodes_terminated = 0
+    kubenodes_running = 0
+    
+    try:
+        for reservation in aws_handle.ec2_instances(region_name):
+            for instance in reservation['Instances']:
+                typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
+                state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
+                
+                if typ == 'kubenode':
+                    if state == 'running':
+                        kubenodes_running += 1
+                    else:
+                        kubenodes_terminated += 1
+                else:
+                    if state == 'running':
+                        vms_running += 1
+                    else:
+                        vms_terminated += 1
+    except botocore.exceptions.ClientError as e:
+        print(f"Error processing EC2 instances in {region_name}: {e}")
+    
+    return {
+        'vms_terminated': vms_terminated,
+        'vms_running': vms_running,
+        'kubenodes_terminated': kubenodes_terminated,
+        'kubenodes_running': kubenodes_running
+    }
 
-        # Count ec2 instances
-        try:
-            for reservation in aws.ec2_instances(RegionName):
-                for instance in reservation['Instances']:
-                    typ = 'kubenode' if AWSHandle.is_vm_kubenode(instance) else 'vm'
-                    state = 'running' if AWSHandle.is_vm_running(instance) else 'terminated'
-                    key = f"{typ}s_{state}"
-                    row[key] += 1
-        except botocore.exceptions.ClientError as e:
-            print(e)
-        try:
-            # Count Fargate Profiles
-            profile_count = aws.fargate_profiles(RegionName)
-            key = "fargate_profiles"
-            row[key] += profile_count
-        except botocore.exceptions.ClientError as e:
-            print(e)
-        try:
-            # Count Fargate Tasks
-            task_count = aws.fargate_tasks(RegionName)
-            key = "fargate_tasks"
-            row[key] += task_count
-        except botocore.exceptions.ClientError as e:
-            print(e)
 
+def process_fargate_profiles(aws_handle, region_name):
+    """Process Fargate profiles for a specific region"""
+    try:
+        return aws_handle.fargate_profiles(region_name)
+    except botocore.exceptions.ClientError as e:
+        print(f"Error processing Fargate profiles in {region_name}: {e}")
+        return 0
+
+
+def process_fargate_tasks(aws_handle, region_name):
+    """Process Fargate tasks for a specific region"""
+    try:
+        return aws_handle.fargate_tasks(region_name)
+    except botocore.exceptions.ClientError as e:
+        print(f"Error processing Fargate tasks in {region_name}: {e}")
+        return 0
+
+
+def process_region(aws_handle, region_name, max_workers=3):
+    """Process all resources in a region using parallel processing"""
+    print(f"Processing region: {region_name} (Account: {aws_handle.account_id})")
+    
+    # Create the row for our output table
+    row = {
+        'account_id': aws_handle.account_id,
+        'region': region_name,
+        'vms_terminated': 0,
+        'vms_running': 0,
+        'kubenodes_terminated': 0,
+        'kubenodes_running': 0,
+        'fargate_profiles': 0,
+        'fargate_tasks': 0
+    }
+    
+    # Process different resource types in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        ec2_future = executor.submit(process_ec2_instances, aws_handle, region_name)
+        fargate_profiles_future = executor.submit(process_fargate_profiles, aws_handle, region_name)
+        fargate_tasks_future = executor.submit(process_fargate_tasks, aws_handle, region_name)
+        
+        # Collect results
+        ec2_results = ec2_future.result()
+        row.update(ec2_results)
+        
+        row['fargate_profiles'] = fargate_profiles_future.result()
+        row['fargate_tasks'] = fargate_tasks_future.result()
+    
+    # Thread-safe updates to global data structures
+    with data_lock:
+        data.append(row)
+    
+    with totals_lock:
         for k in ['vms_terminated', 'vms_running', 'kubenodes_terminated',
                   'kubenodes_running', 'fargate_profiles', 'fargate_tasks']:
             totals[k] += row[k]
+    
+    return row
 
-        # Add the row to our display table
-        data.append(row)
-    # Add in our grand totals to the display table
-data.append(totals)
 
-# Output our results
-print(tabulate(data, headers=headers, tablefmt="grid"))
+def process_account(aws_handle, regions_to_process, max_workers=5):
+    """Process all regions for an account using parallel processing"""
+    print(f"Processing account: {aws_handle.account_id} with {len(regions_to_process)} regions")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all region processing tasks
+        region_futures = [
+            executor.submit(process_region, aws_handle, region_name)
+            for region_name in regions_to_process
+        ]
+        
+        # Wait for all regions to complete
+        for future in concurrent.futures.as_completed(region_futures):
+            try:
+                future.result()  # This will raise any exceptions that occurred
+            except Exception as e:
+                print(f"Error processing region: {e}")
 
-with open('aws-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
-    csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
-    csv_writer.writeheader()
-    csv_writer.writerows(data)
 
-print("\nCSV file stored in: ./aws-benchmark.csv\n\n")
+def main():
+    """Main function with parallel processing"""
+    start_time = time.time()
+    
+    print(f"Starting AWS CSPM benchmark with {args.threads} worker threads")
+    
+    # Get all AWS accounts
+    accounts = AWSOrgAccess().accounts()
+    print(f"Found {len(accounts)} accounts to process")
+    
+    # Process accounts in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
+        account_futures = []
+        
+        for aws_handle in accounts:
+            if args.regions:
+                regions_to_process = [x.strip() for x in args.regions.split(',')]
+            else:
+                regions_to_process = aws_handle.regions
+            
+            # Submit account processing task
+            future = executor.submit(process_account, aws_handle, regions_to_process)
+            account_futures.append(future)
+        
+        # Wait for all accounts to complete
+        for future in concurrent.futures.as_completed(account_futures):
+            try:
+                future.result()  # This will raise any exceptions that occurred
+            except Exception as e:
+                print(f"Error processing account: {e}")
+    
+    # Add totals row
+    data.append(totals)
+    
+    end_time = time.time()
+    processing_time = end_time - start_time
+    
+    print(f"\nProcessing completed in {processing_time:.2f} seconds")
+    
+    # Output results
+    print(tabulate(data, headers=headers, tablefmt="grid"))
+    
+    # Save to CSV
+    with open('aws-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+        csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
+        csv_writer.writeheader()
+        csv_writer.writerows(data)
+    
+    print("\nCSV file stored in: ./aws-benchmark.csv\n")
+
+
+args = parse_args()
+
+if __name__ == "__main__":
+    main()
 
 
 #     .wwwwwwww.
