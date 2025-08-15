@@ -9,21 +9,33 @@ These utilities have been developed to assist you in calculating the overall siz
 
 The `benchmark.sh` entrypoint script helps you to perform sizing calculations for your cloud resources. It detects the cloud provider (AWS, Azure, or GCP) and downloads the necessary scripts to perform the calculation. You can also pass one or more cloud providers as arguments.
 
-***Configuration:***
+## Configuration
 
-The script recognizes the following environmental variables:
+The script recognizes the following environmental variables for AWS:
 
-- `AWS_ASSUME_ROLE_NAME`: The name of the AWS role to assume (optional)
-- `AWS_REGIONS`: The name of the AWS Region or a comma-delimited list of AWS Regions to target (optional)
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `AWS_ASSUME_ROLE_NAME` | `OrganizationAccountAccessRole` | IAM role name for cross-account access |
+| `AWS_REGIONS` | All regions | Comma-separated list of regions to scan |
+| `AWS_THREADS` | `5` | Number of concurrent account threads |
+| `AWS_BATCH_SIZE` | `20` | Accounts processed per batch |
+| `AWS_BATCH_DELAY` | `30` | Seconds to wait between batches |
+| `AWS_API_DELAY` | `0.1` | Seconds to wait between API calls |
+| `AWS_MAX_RETRIES` | `5` | Maximum retry attempts for failed operations |
+| `AWS_OPERATION_TIMEOUT` | `300` | Timeout for individual operations (seconds) |
+| `AWS_RESUME_FILE` | `aws_benchmark_progress.json` | Progress tracking file |
+| `AWS_SKIP_ACCOUNTS` | None | Comma-separated list of account IDs to skip |
+| `AWS_DRY_RUN` | `false` | Set to `true` to simulate without API calls |
 
-To use, please export the variable in your environment prior to running the script:
+To use, please export variables in your environment prior to running the script:
 
 ```shell
 export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
-export AWS_REGIONS="us-east-1,us-east-2"
 ```
 
-***Usage:***
+**Note**: see [AWS Readme](AWS/README.md) for detailed configuration options.
+
+## Usage
 
 ```shell
 ./benchmark.sh [aws|azure|gcp]...
