@@ -1317,18 +1317,3 @@ def main() -> None:  # pylint: disable=R0915,R0914,R0912
 
 if __name__ == "__main__":
     main()
-
-
-#     .wwwwwwww.
-#   .w"  "WW"  "w.
-#  ."   /\  /\   ".
-# |\     o  o     /|
-#  \|  ___\/___  |/
-#  / \ \_v__v_/ / \
-# / | \________/ | \
-# >  \   WWWW   /  <
-# \   \   WWWW   /  /
-#  \   \      /   /
-#  Count says...
-#
-#  That's ONE batch, TWO batches... with RATE LIMITING! AH AH AH!
