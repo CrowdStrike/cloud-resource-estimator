@@ -23,7 +23,6 @@ from typing import Dict, List, Optional, Any, Union
 import boto3
 import botocore
 from botocore.config import Config
-from tabulate import tabulate
 
 
 # Global data structures
@@ -53,7 +52,6 @@ totals: Dict[str, Union[str, int]] = {
 data_lock = threading.Lock()
 totals_lock = threading.Lock()
 progress_lock = threading.Lock()
-error_lock = threading.Lock()
 console_lock = threading.Lock()  # For synchronized console output
 
 # Progress tracking
@@ -71,7 +69,7 @@ logger: Optional[logging.Logger] = None
 
 
 class ErrorCollector:
-    """Thread-safe error collection system to defer error output until after progress bars complete"""
+    """Thread-safe error collection system to defer error output until after progress completes on each account"""
 
     def __init__(self):
         self.errors = []
@@ -187,75 +185,7 @@ class ErrorCollector:
             if len(other_errors) > max_errors:
                 print(f"   ... and {len(other_errors) - max_errors} more errors")
 
-
-class ProgressBar:
-    """Simple progress bar for console output with error collection support"""
-
-    def __init__(self, total, description="", width=40, error_collector=None):
-        self.total = total
-        self.current = 0
-        self.description = description
-        self.width = width
-        self.start_time = time.time()
-        self.error_collector = error_collector
-
-    def update(self, increment=1):
-        """Update progress bar"""
-        self.current = min(self.current + increment, self.total)
-        self._display()
-
-    def set_description(self, description):
-        """Update the description"""
-        self.description = description
-        self._display()
-
-    def _display(self):
-        """Display the progress bar"""
-        if self.total == 0:
-            percentage = 100
-            filled_length = self.width
-        else:
-            percentage = (self.current / self.total) * 100
-            filled_length = int(self.width * self.current // self.total)
-
-        pbar = "█" * filled_length + "░" * (self.width - filled_length)
-        elapsed = time.time() - self.start_time
-
-        # Calculate ETA
-        if self.current > 0 and self.current < self.total:
-            eta = (elapsed / self.current) * (self.total - self.current)
-            eta_str = f" ETA: {int(eta)}s"
-        else:
-            eta_str = ""
-
-        # Clear the line and display progress
-        print(
-            f"\r{self.description} |{pbar}| {self.current}/{self.total} ({percentage:.1f}%){eta_str}",
-            end="",
-            flush=True,
-        )
-
-        if self.current >= self.total:
-            print()  # New line when complete
-
-    def finish(self, final_message="", display_errors=True):
-        """Complete the progress bar and optionally display collected errors"""
-        self.current = self.total
-        if final_message:
-            # Just print the final message without duplicating the progress bar
-            print(final_message)
-        else:
-            # Ensure we're at 100% and add a newline if not already done
-            if self.current < self.total:
-                self._display()
-
-        # Display collected errors after progress bar completes
-        if (
-            display_errors
-            and self.error_collector
-            and self.error_collector.has_errors()
-        ):
-            self.error_collector.display_errors()
+        print()  # Add blank line after error display
 
 
 def parse_args() -> argparse.Namespace:
@@ -1078,16 +1008,9 @@ def process_region(aws_handle, region_name, error_collector=None, max_workers=2)
         ]:
             totals[k] += row[k]
 
-        # Add the row to our display table
-        data.append(row)
-    # Add in our grand totals to the display table
-
-
-data.append(totals)
-
 
 def process_account(aws_handle, regions_to_process, progress_tracker, max_workers=3):  # pylint: disable=R0914
-    """Process all regions for an account using parallel processing with progress bar"""
+    """Process all regions for an account using parallel processing with simple status messages"""
     account_id = aws_handle.account_id
 
     if progress_tracker.should_skip(account_id):
@@ -1097,17 +1020,9 @@ def process_account(aws_handle, regions_to_process, progress_tracker, max_worker
     # Initialize error collector
     error_collector = ErrorCollector()
 
-    # Create progress bar with account and regions info embedded in description
-    regions_list = ", ".join(regions_to_process[:6])  # Show first 6 regions for space
-    if len(regions_to_process) > 6:
-        regions_list += f" ... (+{len(regions_to_process) - 6} more)"
-
-    progress_bar = ProgressBar(
-        total=len(regions_to_process),
-        description=f"Processing {account_id} [{regions_list}]",
-        width=50,
-        error_collector=error_collector,
-    )
+    # Simple status message when starting account processing
+    with console_lock:
+        print(f"Processing account: {account_id}")
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -1118,8 +1033,7 @@ def process_account(aws_handle, regions_to_process, progress_tracker, max_worker
                 for region_name in regions_to_process
             ]
 
-            # Wait for all regions to complete with timeout and update progress bar
-            completed_regions = 0
+            # Wait for all regions to complete with timeout
             future_errors = []
 
             for future in concurrent.futures.as_completed(
@@ -1127,43 +1041,41 @@ def process_account(aws_handle, regions_to_process, progress_tracker, max_worker
             ):
                 try:
                     result = future.result()  # pylint: disable=W0612
-                    completed_regions += 1
-                    with console_lock:
-                        progress_bar.update()
                 except Exception as e:
                     future_errors.append(str(e))
-                    completed_regions += 1
-                    with console_lock:
-                        progress_bar.update()
 
-        # Complete the progress bar with final status (this will display collected errors)
+        # Simple completion message with error handling
         with console_lock:
             error_count = len(error_collector.get_errors()) + len(future_errors)
             if error_count > 0:
-                progress_bar.finish(
-                    f"✓ {account_id} - completed with {error_count} error(s)"
-                )
+                print(f"\n✓ {account_id} - completed with {error_count} error(s)")
+
+                # Display collected errors
+                if error_collector.has_errors():
+                    error_collector.display_errors()
+
                 # Print any future execution errors that weren't collected
                 if future_errors:
-                    print("   Additional execution errors:")
+                    print("\n   Additional execution errors:")
                     for error in future_errors[:3]:
                         print(f"   ⚠️  {error}")
                     if len(future_errors) > 3:
                         print(
                             f"   ... and {len(future_errors) - 3} more execution errors"
                         )
+                    print()  # Add blank line after additional errors
             else:
-                progress_bar.finish(f"✓ {account_id} - completed successfully")
+                print(f"\n✓ {account_id} - completed successfully\n")
 
         progress_tracker.mark_completed(account_id)
 
     except Exception as e:
         with console_lock:
-            progress_bar.finish(f"✗ {account_id} - failed", display_errors=False)
+            print(f"\n✗ {account_id} - failed")
             # Display any collected errors before showing the failure
             if error_collector.has_errors():
                 error_collector.display_errors()
-            print(f"   ❌ {e}")
+            print(f"   ❌ {e}\n")
         progress_tracker.mark_failed(account_id)
 
 
@@ -1282,13 +1194,14 @@ def print_resume_guidance(progress_tracker, args):  # pylint: disable=W0621,R091
     print("   export AWS_THREADS=2")
     print("   export AWS_BATCH_SIZE=10")
     print("   export AWS_BATCH_DELAY=60")
+    print("   export AWS_API_DELAY=0.2")
     print("   ./benchmark.sh aws")
 
     print("\n📚 For more help, see: AWS/RATE_LIMITING_SOLUTIONS.md")
     print("=" * 70)
 
 
-def main() -> None:  # pylint: disable=R0915
+def main() -> None:  # pylint: disable=R0915,R0914,R0912
     """Enhanced main function with batch processing and rate limiting"""
     global args, logger  # pylint: disable=W0603
 
@@ -1340,13 +1253,19 @@ def main() -> None:  # pylint: disable=R0915
             print("All accounts already completed!")
             return
 
-        # Determine regions to process
+        # Determine regions to process and display in configuration
         if args.regions:
             regions_to_process = [x.strip() for x in args.regions.split(",")]
-            print(f"Processing regions: {regions_to_process}")
+            regions_display = ", ".join(regions_to_process)
+            print(f"\n📍 Regions to process: {regions_display}")
         else:
             regions_to_process = accounts[0].regions
-            print(f"Processing all {len(regions_to_process)} regions")
+            regions_display = ", ".join(regions_to_process[:10])
+            if len(regions_to_process) > 10:
+                regions_display += f" ... (+{len(regions_to_process) - 10} more)"
+            print(
+                f"\n📍 Processing all {len(regions_to_process)} regions: {regions_display}"
+            )
 
         # Process accounts in batches
         process_accounts_in_batches(accounts, regions_to_process, progress_tracker)
@@ -1375,8 +1294,6 @@ def main() -> None:  # pylint: disable=R0915
 
         # Output results
         if data:
-            print(tabulate(data, headers=headers, tablefmt="grid"))
-
             # Save to CSV with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_filename = f"aws-benchmark-{timestamp}.csv"
@@ -1386,7 +1303,7 @@ def main() -> None:  # pylint: disable=R0915
                 csv_writer.writeheader()
                 csv_writer.writerows(data)
 
-            print(f"\nCSV file stored in: ./{csv_filename}")
+            print(f"\nCSV file stored in: ./cloud-benchmark/{csv_filename}")
 
         # Clean up progress file on successful completion
         if len(progress_state["failed_accounts"]) == 0:
