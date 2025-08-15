@@ -1,9 +1,8 @@
 # pylint: disable=C0301,C0302,E0401,W1203,W0718
 # flake8: noqa: E501
 """
-aws-cspm-benchmark-enhanced.py
+aws-cspm-benchmark.py
 
-Enhanced version with rate limiting, backoff, and timeout handling for large-scale deployments.
 Assists with provisioning calculations by retrieving a count of
 all billable resources attached to an AWS account.
 """
@@ -190,9 +189,7 @@ class ErrorCollector:
 
 def parse_args() -> argparse.Namespace:
     """Parse and validate command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="Enhanced AWS accounts analyzer with rate limiting and error handling."
-    )
+    parser = argparse.ArgumentParser(description="AWS accounts analyzer")
     parser.add_argument(
         "-r",
         "--role_name",
@@ -1202,7 +1199,7 @@ def print_resume_guidance(progress_tracker, args):  # pylint: disable=W0621,R091
 
 
 def main() -> None:  # pylint: disable=R0915,R0914,R0912
-    """Enhanced main function with batch processing and rate limiting"""
+    """Main Function"""
     global args, logger  # pylint: disable=W0603
 
     # Initialize global configuration first
@@ -1212,7 +1209,7 @@ def main() -> None:  # pylint: disable=R0915,R0914,R0912
 
     start_time = time.time()
 
-    logger.info("Starting enhanced AWS CSPM benchmark")
+    logger.info("Starting AWS CSPM benchmark")
     logger.info("Configuration:")
     logger.info(f"  - Threads: {args.threads}")
     logger.info(f"  - Batch size: {args.batch_size}")
@@ -1332,6 +1329,6 @@ if __name__ == "__main__":
 # >  \   WWWW   /  <
 # \   \   WWWW   /  /
 #  \   \      /   /
-#  Enhanced Count says...
+#  Count says...
 #
 #  That's ONE batch, TWO batches... with RATE LIMITING! AH AH AH!
