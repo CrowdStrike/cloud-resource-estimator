@@ -51,7 +51,7 @@ curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main
 cat ./cloud-benchmark/*benchmark.csv
 ```
 
-## ⚙️ Enhanced Features & Configuration
+## ⚙️ Features & Configuration
 
 ### Complete Environment Variables
 
@@ -123,11 +123,11 @@ export AWS_REGIONS="us-east-1,us-west-2,eu-west-1"
 
 #### Skip Problematic Accounts
 ```shell
-python aws_cspm_benchmark_enhanced.py \
+python aws_cspm_benchmark.py \
   --skip-accounts "123456789012,234567890123,345678901234"
 ```
 
 #### Dry Run to Preview Processing
 ```shell
-python aws_cspm_benchmark_enhanced.py --dry-run
+python aws_cspm_benchmark.py --dry-run
 ```

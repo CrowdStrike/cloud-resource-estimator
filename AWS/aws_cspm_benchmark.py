@@ -332,7 +332,7 @@ class RetryHandler:
         """Calculate exponential backoff delay with optional jitter"""
         delay = min(base_delay * (2**attempt), max_delay)
         if jitter:
-            delay *= 0.5 + random.random() * 0.5  # Add 0-50% jitter
+            delay *= 0.5 + random.random() * 0.5  # nosec B311
         return delay
 
     @staticmethod
