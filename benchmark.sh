@@ -8,16 +8,29 @@ base_url=https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main
 # Usage message
 usage() {
     echo """
-    Usage: $0 [aws|azure|gcp]...
-
-    More than one cloud provider can be specified.
-    If no cloud provider is specified, the script will attempt to detect the provider.
-    ----------------------------------------------------------------------------------
+    Usage: $0 [OPTIONS] [aws|azure|gcp]...
 
     The script recognizes the following environment variables:
 
+    AWS:
         - AWS_ASSUME_ROLE_NAME: The name of the AWS role to assume (optional)
-        - AWS_REGIONS: The name of the AWS Region to target or a comma-delimited list of AWS Regions to target (optional)"""
+        - AWS_REGIONS: The name of the AWS Region to target or a comma-delimited list of AWS Regions to target (optional)
+        - AWS_THREADS: Number of worker threads for parallel processing (default: 5)
+        - AWS_BATCH_SIZE: Number of accounts to process per batch (default: 20)
+        - AWS_BATCH_DELAY: Delay in seconds between batches (default: 30)
+        - AWS_API_DELAY: Delay in seconds between API calls (default: 0.1)
+        - AWS_MAX_RETRIES: Maximum retry attempts for failed operations (default: 5)
+        - AWS_OPERATION_TIMEOUT: Timeout in seconds for individual operations (default: 300)
+        - AWS_RESUME_FILE: File to store/resume progress (default: aws_benchmark_progress.json)
+        - AWS_SKIP_ACCOUNTS: Comma-separated list of account IDs to skip
+        - AWS_DRY_RUN: Set to 'true' to show what would be processed without making API calls
+        
+        Example for large organizations (200+ accounts):
+        export AWS_THREADS=3
+        export AWS_BATCH_SIZE=12
+        export AWS_BATCH_DELAY=45
+        export AWS_API_DELAY=0.15
+        """
 }
 
 # Check if the system has Python3 and pip installed
@@ -68,8 +81,15 @@ call_benchmark_script() {
     AWS)
         [[ -n $AWS_ASSUME_ROLE_NAME ]] && args+=("-r" "$AWS_ASSUME_ROLE_NAME")
         [[ -n $AWS_REGIONS ]] && args+=("-R" "$AWS_REGIONS")
-        # Below is how we would pass in additional arguments if needed
-        # [[ -n $AWS_EXAMPLE ]] && args+=("-t" "$AWS_EXAMPLE")
+        [[ -n $AWS_THREADS ]] && args+=("--threads" "$AWS_THREADS")
+        [[ -n $AWS_BATCH_SIZE ]] && args+=("--batch-size" "$AWS_BATCH_SIZE")
+        [[ -n $AWS_BATCH_DELAY ]] && args+=("--batch-delay" "$AWS_BATCH_DELAY")
+        [[ -n $AWS_API_DELAY ]] && args+=("--api-delay" "$AWS_API_DELAY")
+        [[ -n $AWS_MAX_RETRIES ]] && args+=("--max-retries" "$AWS_MAX_RETRIES")
+        [[ -n $AWS_OPERATION_TIMEOUT ]] && args+=("--operation-timeout" "$AWS_OPERATION_TIMEOUT")
+        [[ -n $AWS_RESUME_FILE ]] && args+=("--resume-file" "$AWS_RESUME_FILE")
+        [[ -n $AWS_SKIP_ACCOUNTS ]] && args+=("--skip-accounts" "$AWS_SKIP_ACCOUNTS")
+        [[ -n $AWS_DRY_RUN ]] && [[ $AWS_DRY_RUN == "true" ]] && args+=("--dry-run")
         ;;
     Azure)
         ;;
@@ -90,12 +110,43 @@ audit() {
     echo "Working in cloud: ${CLOUD}"
     cloud=$(echo "$CLOUD" | tr '[:upper:]' '[:lower:]')
 
-    curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
-    echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
-
-    python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
-    file="${cloud}_cspm_benchmark.py"
-    curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+    case "$CLOUD" in
+    AWS)
+        # Use local AWS script if available
+        if [ -f "../AWS/aws_cspm_benchmark.py" ]; then
+            echo "Using local AWS CSPM benchmark script..."
+            file="../AWS/aws_cspm_benchmark.py"
+            
+            # Install requirements from local AWS directory
+            if [ -f "../AWS/requirements.txt" ]; then
+                python3 -m pip install --disable-pip-version-check -qq -r "../AWS/requirements.txt"
+            else
+                echo "AWS requirements.txt not found locally, downloading from remote"
+                curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
+                python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            fi
+        else
+            echo "Local AWS script not found, downloading from remote"
+            curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
+            echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
+            python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            file="${cloud}_cspm_benchmark.py"
+            curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+        fi
+        ;;
+    Azure|GCP)
+        # Use remote scripts for Azure and GCP (unchanged behavior)
+        curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
+        echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
+        python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+        file="${cloud}_cspm_benchmark.py"
+        curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+        ;;
+    *)
+        echo "Unsupported cloud provider: $CLOUD"
+        exit 1
+        ;;
+    esac
 
     call_benchmark_script "$CLOUD" "${file}"
 }
