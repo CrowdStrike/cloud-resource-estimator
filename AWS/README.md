@@ -48,7 +48,7 @@ curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main
 ### Collect the findings
 
 ```shell
-cat ./cloud-benchmark/*benchmark.csv
+cat ./cloud-benchmark/*benchmark*.csv
 ```
 
 ## ⚙️ Features & Configuration
