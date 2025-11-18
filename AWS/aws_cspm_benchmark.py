@@ -190,11 +190,17 @@ class ErrorCollector:
 def parse_args() -> argparse.Namespace:
     """Parse and validate command line arguments"""
     parser = argparse.ArgumentParser(description="AWS accounts analyzer")
+
+    # Check for AWS_ASSUME_ROLE_NAME environment variable
+    default_role = os.environ.get(
+        "AWS_ASSUME_ROLE_NAME", "OrganizationAccountAccessRole"
+    )
+
     parser.add_argument(
         "-r",
         "--role_name",
-        default="OrganizationAccountAccessRole",
-        help="Specify a custom role name to assume into.",
+        default=default_role,
+        help=f"Specify a custom role name to assume into (default: {default_role}, can be set via AWS_ASSUME_ROLE_NAME env var).",
     )
     parser.add_argument("-R", "--regions", help="Specify which AWS regions to analyze.")
     parser.add_argument(
@@ -706,28 +712,55 @@ class AWSHandle:
         self.rate_limiter = rate_limiter or RateLimiter()
         self.retry_handler = retry_handler or RetryHandler()
         self._session_created = False
+        self._session_lock = threading.Lock()  # Thread safety for lazy session creation
+
+        # Validate lazy creation parameters
+        if account_id and account_id != master_account_id:
+            if not all([master_session, role_name]):
+                raise ValueError(
+                    f"Cross-account session requires master_session and role_name for account {account_id}"
+                )
 
     @property
     def aws_session(self):
         """Lazy creation of AWS session - only create when first accessed"""
         if self._aws_session is None and not self._session_created:
-            self._session_created = True
-            if self.acc_id and self.acc_id != self._master_account_id:
-                # Need to create session by assuming role
-                self._aws_session = self._create_cross_account_session()
-            else:
-                # Use master session or create default session
-                self._aws_session = self._master_session or boto3.session.Session()
+            with self._session_lock:
+                # Double-check locking pattern
+                if self._aws_session is None and not self._session_created:
+                    try:
+                        if self.acc_id and self.acc_id != self._master_account_id:
+                            # Need to create session by assuming role
+                            self._aws_session = self._create_cross_account_session()
+                        else:
+                            # Use master session or create default session
+                            self._aws_session = (
+                                self._master_session or boto3.session.Session()
+                            )
 
-        return self._aws_session if self._aws_session else boto3.session.Session()
+                        # Only set flag on successful session creation
+                        self._session_created = True
+
+                    except Exception as e:
+                        # Don't set flag on failure to allow retries
+                        logger.error(f"Session creation failed for {self.acc_id}: {e}")
+                        # Re-raise the original exception to preserve error details
+                        raise
+
+        # Don't silently fallback to default session - raise error if session is None
+        if self._aws_session is None:
+            raise RuntimeError(
+                f"No valid AWS session available for account {self.acc_id}"
+            )
+
+        return self._aws_session
 
     def _create_cross_account_session(self):
         """Create a cross-account session using STS assume role"""
         if not self._master_session or not self._role_name:
-            logger.warning(
+            raise ValueError(
                 f"Cannot create session for account {self.acc_id}: missing master session or role name"
             )
-            return None
 
         try:
             master_sts = self._master_session.client("sts", config=self.config)
@@ -748,13 +781,33 @@ class AWSHandle:
                 aws_session_token=credentials["Credentials"]["SessionToken"],
                 region_name="us-east-1",
             )
-        except Exception as e:
-            error_msg = f"Failed to create session for account {self.acc_id}: {e}"
-            if logger:
-                logger.error(error_msg)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            error_message = e.response.get("Error", {}).get("Message", str(e))
+
+            # Provide specific error messages for common issues
+            if error_code == "AccessDenied":
+                raise RuntimeError(
+                    f"Access denied assuming role {self._role_name} in account {self.acc_id}. "
+                    f"Check if role exists and trusts the master account."
+                ) from e
+            elif error_code == "NoSuchEntity":
+                raise RuntimeError(
+                    f"Role {self._role_name} not found in account {self.acc_id}. "
+                    f"Ensure the role exists and is spelled correctly."
+                ) from e
+            elif error_code in ["InvalidUserID.NotFound", "ValidationError"]:
+                raise RuntimeError(
+                    f"Account {self.acc_id} may be invalid, suspended, or not in organization."
+                ) from e
             else:
-                print(error_msg)
-            return None
+                raise RuntimeError(
+                    f"STS assume role failed for account {self.acc_id}: {error_code} - {error_message}"
+                ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error creating session for account {self.acc_id}: {type(e).__name__}: {e}"
+            ) from e
 
     @property
     def regions(self):
