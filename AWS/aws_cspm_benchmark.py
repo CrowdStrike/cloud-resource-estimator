@@ -550,7 +550,8 @@ class AWSOrgAccess:
                     a for a in active_accounts if a["Id"] not in skip_list
                 ]
 
-            return [self.aws_handle(a) for a in active_accounts if self.aws_handle(a)]
+            # Return lazy handles that defer session creation to avoid n+ STS calls upfront
+            return [self.create_lazy_handle(a) for a in active_accounts]
 
         except botocore.exceptions.ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
@@ -577,6 +578,24 @@ class AWSOrgAccess:
                     )
                 ]
             raise
+
+    def create_lazy_handle(self, account: Dict[str, Any]) -> "AWSHandle":
+        """Create a lazy AWSHandle that defers session creation until needed
+
+        Args:
+            account: Account dictionary from AWS Organizations API
+
+        Returns:
+            AWSHandle object with lazy session creation
+        """
+        return AWSHandle(
+            account_id=account["Id"],
+            master_session=self.master_session,
+            master_account_id=self.master_account_id,
+            role_name=args.role_name,
+            rate_limiter=self.rate_limiter,
+            retry_handler=self.retry_handler,
+        )
 
     def aws_handle(self, account: Dict[str, Any]) -> Optional["AWSHandle"]:
         """Create an AWSHandle for the given account
@@ -661,7 +680,14 @@ class AWSHandle:
     ]
 
     def __init__(
-        self, aws_session=None, account_id=None, rate_limiter=None, retry_handler=None
+        self,
+        aws_session=None,
+        account_id=None,
+        rate_limiter=None,
+        retry_handler=None,
+        master_session=None,
+        master_account_id=None,
+        role_name=None,
     ):
         config = Config(
             retries={"max_attempts": args.max_retries, "mode": "adaptive"},
@@ -670,11 +696,65 @@ class AWSHandle:
             connect_timeout=30,
         )
 
-        self.aws_session = aws_session if aws_session else boto3.session.Session()
+        # Store lazy session creation parameters
+        self._aws_session = aws_session
+        self._master_session = master_session
+        self._master_account_id = master_account_id
+        self._role_name = role_name
         self.acc_id = account_id
         self.config = config
         self.rate_limiter = rate_limiter or RateLimiter()
         self.retry_handler = retry_handler or RetryHandler()
+        self._session_created = False
+
+    @property
+    def aws_session(self):
+        """Lazy creation of AWS session - only create when first accessed"""
+        if self._aws_session is None and not self._session_created:
+            self._session_created = True
+            if self.acc_id and self.acc_id != self._master_account_id:
+                # Need to create session by assuming role
+                self._aws_session = self._create_cross_account_session()
+            else:
+                # Use master session or create default session
+                self._aws_session = self._master_session or boto3.session.Session()
+
+        return self._aws_session if self._aws_session else boto3.session.Session()
+
+    def _create_cross_account_session(self):
+        """Create a cross-account session using STS assume role"""
+        if not self._master_session or not self._role_name:
+            logger.warning(
+                f"Cannot create session for account {self.acc_id}: missing master session or role name"
+            )
+            return None
+
+        try:
+            master_sts = self._master_session.client("sts", config=self.config)
+
+            def assume_role():
+                return master_sts.assume_role(
+                    RoleArn=f"arn:aws:iam::{self.acc_id}:role/{self._role_name}",
+                    RoleSessionName=f"cspm-benchmark-{self.acc_id}",
+                )
+
+            credentials = self.retry_handler.retry_with_backoff(
+                assume_role, args.max_retries, f"lazy_assume_role_{self.acc_id}"
+            )
+
+            return boto3.session.Session(
+                aws_access_key_id=credentials["Credentials"]["AccessKeyId"],
+                aws_secret_access_key=credentials["Credentials"]["SecretAccessKey"],
+                aws_session_token=credentials["Credentials"]["SessionToken"],
+                region_name="us-east-1",
+            )
+        except Exception as e:
+            error_msg = f"Failed to create session for account {self.acc_id}: {e}"
+            if logger:
+                logger.error(error_msg)
+            else:
+                print(error_msg)
+            return None
 
     @property
     def regions(self):
