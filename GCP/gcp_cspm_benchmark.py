@@ -6,6 +6,7 @@ of all billable resources attached to a GCP project.
 """
 
 import csv
+import fnmatch
 import logging
 import os
 from functools import cached_property
@@ -116,8 +117,7 @@ def process_gcp_project(gcp_project: Project) -> Dict[str, Any]:
 
     fail_safe(count_instances, gcp_project, result)
     fail_safe(count_autopilot_clusters, gcp_project, result)
-    fail_safe(count_cloud_run_services, gcp_project, result)
-    fail_safe(count_cloud_run_jobs, gcp_project, result)
+    fail_safe(count_cloud_run_resources, gcp_project, result)
     fail_safe(validate_and_adjust_kube_counts, gcp_project, result)
 
     return result
@@ -146,7 +146,7 @@ def log_warning(api: str, project_name: str) -> None:
     api_names = {
         "compute.googleapis.com": "Compute Engine",
         "container.googleapis.com": "Kubernetes Engine",
-        "run.googleapis.com": "Cloud Run",
+        "run.googleapis.com": "Cloud Run (Services & Jobs)",
     }
     message = f"Unable to process {api_names[api]} API for project: {project_name}."
     log.warning(message)
@@ -228,6 +228,82 @@ def count_cloud_run_jobs(gcp_project: Project, result: Dict[str, int]):
     result["cloud_run_jobs"] = len(jobs)
 
 
+def count_cloud_run_resources(gcp_project: Project, result: Dict[str, int]):
+    """
+    Count both Cloud Run services and jobs in a single operation.
+
+    This combined function eliminates duplicate API calls and error messages
+    since both services and jobs use the same underlying Cloud Run API.
+    If the API is disabled, both counts will be set to 0.
+    """
+    try:
+        # Try services first
+        services = gcp.list_cloud_run_services(gcp_project.project_id)
+        result["cloud_run_services"] = len(services)
+
+        # Only try jobs if services succeeded (same API, so if one works, both should)
+        jobs = gcp.list_cloud_run_jobs(gcp_project.project_id)
+        result["cloud_run_jobs"] = len(jobs)
+
+    except Exception:
+        # If Cloud Run API is disabled, both services and jobs are unavailable
+        result["cloud_run_services"] = 0
+        result["cloud_run_jobs"] = 0
+        raise  # Re-raise for fail_safe() error handling and logging
+
+
+def should_skip_project(project: Project) -> bool:
+    """
+    Determine if a project should be skipped during scanning based on filtering rules.
+
+    Filtering rules (in order of precedence):
+    1. System projects (sys-*) are skipped by default unless GCP_INCLUDE_SYSTEM_PROJECTS=true
+    2. Include patterns (allowlist) - if set, only matching projects are processed
+    3. Exclude patterns (denylist) - matching projects are skipped
+
+    Returns True if the project should be skipped.
+    """
+    project_id = project.project_id
+
+    # 1. System projects (default skip unless explicitly included)
+    include_system = os.environ.get('GCP_INCLUDE_SYSTEM_PROJECTS', 'false').lower() == 'true'
+    if project_id.startswith('sys-') and not include_system:
+        log.info("Skipping system project: %s", project_id)
+        return True
+
+    # 2. Include patterns (allowlist - if set, only these patterns are processed)
+    include_patterns = os.environ.get('GCP_INCLUDE_PATTERNS', '')
+    if include_patterns:
+        patterns = [p.strip() for p in include_patterns.split(',') if p.strip()]
+        if not matches_any_pattern(project_id, patterns):
+            log.info("Project %s doesn't match include patterns, skipping", project_id)
+            return True
+
+    # 3. Exclude patterns (denylist)
+    exclude_patterns = os.environ.get('GCP_EXCLUDE_PATTERNS', '')
+    if exclude_patterns:
+        patterns = [p.strip() for p in exclude_patterns.split(',') if p.strip()]
+        if matches_any_pattern(project_id, patterns):
+            log.info("Project %s matches exclude pattern, skipping", project_id)
+            return True
+
+    return False
+
+
+def matches_any_pattern(project_id: str, patterns: List[str]) -> bool:
+    """
+    Check if project_id matches any of the provided patterns using glob-style matching.
+
+    Args:
+        project_id: The GCP project ID to check
+        patterns: List of glob patterns (e.g., ['dev-*', 'test-*', '*-sandbox'])
+
+    Returns:
+        True if project_id matches any pattern, False otherwise
+    """
+    return any(fnmatch.fnmatch(project_id, pattern) for pattern in patterns)
+
+
 data = []
 service_disabled_calls = {}
 headers = {
@@ -255,18 +331,43 @@ totals = {
 
 gcp = GCP()
 
-projects = gcp.projects()
+projects = list(gcp.projects())
 if not projects:
     log.error("No GCP projects found")
     exit(1)  # pylint: disable=consider-using-sys-exit
 
-for project in gcp.projects():
+# Track filtering statistics for summary
+total_projects = 0
+skipped_projects = 0
+processed_projects = 0
+
+log.info("Starting GCP project scan with filtering enabled")
+log.info("Environment variables:")
+log.info("  GCP_INCLUDE_SYSTEM_PROJECTS: %s", os.environ.get('GCP_INCLUDE_SYSTEM_PROJECTS', 'false'))
+log.info("  GCP_INCLUDE_PATTERNS: %s", os.environ.get('GCP_INCLUDE_PATTERNS', '(not set)'))
+log.info("  GCP_EXCLUDE_PATTERNS: %s", os.environ.get('GCP_EXCLUDE_PATTERNS', '(not set)'))
+
+for project in projects:
+    total_projects += 1
+
+    # Apply filtering logic
+    if should_skip_project(project):
+        skipped_projects += 1
+        continue
+
+    processed_projects += 1
     row = process_gcp_project(project)
     if row:
         data.append(row)
         for k in totals:
             if k != "project_id":
                 totals[k] += row[k]
+
+# Log filtering summary
+log.info("Project filtering summary:")
+log.info("  Total projects discovered: %d", total_projects)
+log.info("  Projects skipped by filters: %d", skipped_projects)
+log.info("  Projects processed: %d", processed_projects)
 
 data.append(totals)
 
