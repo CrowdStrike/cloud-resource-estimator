@@ -133,8 +133,10 @@ def fail_safe(count_func, *args) -> None:
         else:
             log.error("Unexpected error for project: %s: %s", project.display_name, exc)
     except HttpError as exc:
-        if exc.status_code == 403 and "SERVICE_DISABLED" in str(exc):
-            log_warning(get_service_disabled_name(exc), project.display_name)
+        if exc.status_code == 403 and ("SERVICE_DISABLED" in str(exc) or "BILLING_DISABLED" in str(exc)):
+            service_name = get_service_disabled_name(exc)
+            error_type = "BILLING_DISABLED" if "BILLING_DISABLED" in str(exc) else "SERVICE_DISABLED"
+            log_warning(service_name, project.display_name, error_type)
             add_message(project.project_id, exc.reason)
         else:
             log.error("Unexpected error for project: %s: %s", project.display_name, exc)
@@ -142,13 +144,18 @@ def fail_safe(count_func, *args) -> None:
         log.error("Unexpected error for project: %s: %s", project.display_name, exc)
 
 
-def log_warning(api: str, project_name: str) -> None:
+def log_warning(api: str, project_name: str, error_type: str = "SERVICE_DISABLED") -> None:
     api_names = {
         "compute.googleapis.com": "Compute Engine",
         "container.googleapis.com": "Kubernetes Engine",
         "run.googleapis.com": "Cloud Run (Services & Jobs)",
     }
-    message = f"Unable to process {api_names[api]} API for project: {project_name}."
+
+    if error_type == "BILLING_DISABLED":
+        message = f"Billing not enabled for {api_names[api]} API on project: {project_name}. Enable billing to access this API."
+    else:
+        message = f"Unable to process {api_names[api]} API for project: {project_name}."
+
     log.warning(message)
 
 
@@ -168,9 +175,17 @@ def get_service_disabled_name(exc: HttpError) -> str:
 def validate_and_adjust_kube_counts(gcp_project: Project, result: Dict[str, Any]) -> None:
     """Compare instance-detected kube nodes with GKE API reported nodes and adjust if needed."""
     try:
+        # Check if we already know the Container API is unavailable
         if gcp_project.project_id in service_disabled_calls:
             api_errors = service_disabled_calls[gcp_project.project_id]
-            if any("container" in err.lower() for err in api_errors):
+            # Check for container API issues (service disabled, billing disabled, or any container-related error)
+            container_unavailable = any(
+                "container" in err.lower() or
+                "billing" in err.lower() and "container.googleapis.com" in str(service_disabled_calls) or
+                "service_disabled" in err.lower()
+                for err in api_errors
+            )
+            if container_unavailable:
                 message = (
                     f"Skipping validation for project {gcp_project.project_id} due to container API access issues"
                 )
@@ -197,8 +212,9 @@ def validate_and_adjust_kube_counts(gcp_project: Project, result: Dict[str, Any]
             result["kubenodes_running"] = standard_node_count
 
     except Exception as e:  # pylint: disable=broad-except
-        message = f"Error validating node counts for project {gcp_project.project_id}: {str(e)}"
-        log.error(message)
+        # Don't log this as an error since we likely already logged the underlying API issue
+        message = f"Skipping node count validation for project {gcp_project.project_id} due to API access issues"
+        log.debug(message)
 
 
 def count_autopilot_clusters(gcp_project: Project, result: Dict[str, int]):
@@ -272,7 +288,7 @@ def should_skip_project(project: Project) -> bool:
         return True
 
     # 2. Include patterns (allowlist - if set, only these patterns are processed)
-    include_patterns = os.environ.get('GCP_INCLUDE_PATTERNS', '')
+    include_patterns = os.environ.get('GCP_INCLUDE_PATTERNS', '').lower()
     if include_patterns:
         patterns = [p.strip() for p in include_patterns.split(',') if p.strip()]
         if not matches_any_pattern(project_id, patterns):
@@ -280,7 +296,7 @@ def should_skip_project(project: Project) -> bool:
             return True
 
     # 3. Exclude patterns (denylist)
-    exclude_patterns = os.environ.get('GCP_EXCLUDE_PATTERNS', '')
+    exclude_patterns = os.environ.get('GCP_EXCLUDE_PATTERNS', '').lower()
     if exclude_patterns:
         patterns = [p.strip() for p in exclude_patterns.split(',') if p.strip()]
         if matches_any_pattern(project_id, patterns):
