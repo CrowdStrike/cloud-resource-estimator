@@ -1,9 +1,20 @@
 ![CrowdStrike Logo (Light)](https://raw.githubusercontent.com/CrowdStrike/.github/main/assets/cs-logo-light-mode.png#gh-light-mode-only)
 ![CrowdStrike Logo (Dark)](https://raw.githubusercontent.com/CrowdStrike/.github/main/assets/cs-logo-dark-mode.png#gh-dark-mode-only)
 
-# CrowdStrike CWP / Horizon Benchmark Utilities
+# CrowdStrike Cloud Resource Estimator
 
-These utilities have been developed to assist you in calculating the overall size of a cloud deployment.
+This multi-cloud resource auditing utility helps organizations calculate the size of their cloud deployments across AWS, Azure, and Google Cloud Platform. It's designed for **CrowdStrike CWP/Horizon licensing calculations** and cloud security posture management (CSPM) benchmarking.
+
+## What This Tool Does
+
+The Cloud Resource Estimator performs **read-only** scanning of your cloud infrastructure to count:
+
+- Virtual machines and compute instances
+- Container services (ECS, AKS, GKE)
+- Serverless functions and managed services
+- Other billable resources relevant for CSPM licensing
+
+**No changes are made to your cloud environment** - this is strictly an auditing and counting tool.
 
 ## Running an audit
 
@@ -11,7 +22,9 @@ The `benchmark.sh` entrypoint script helps you to perform sizing calculations fo
 
 ## Configuration
 
-The script recognizes the following environmental variables for AWS:
+Each cloud provider supports various environment variables for performance tuning and filtering. Below are the key AWS configuration options (for complete configuration details, see the provider-specific README files):
+
+### AWS Configuration
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
@@ -32,6 +45,13 @@ To use, please export variables in your environment prior to running the script:
 ```shell
 export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 ```
+
+### Azure and GCP Configuration
+
+Azure and GCP also support performance tuning and filtering options. For complete configuration details:
+
+- **Azure**: See [Azure README](Azure/README.md) for subscription filtering and performance settings
+- **GCP**: See [GCP README](GCP/README.md) for project filtering (including sys-* project handling) and threading options
 
 **Note**: see [AWS Readme](AWS/README.md) for detailed configuration options.
 
@@ -60,7 +80,7 @@ For those who prefer to run the script locally, or would like to run the script 
 - Python 3
 - pip
 - curl
-- Approprate cloud provider CLI ([AWS](https://aws.amazon.com/cli/), [Azure](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli), [GCP](https://cloud.google.com/sdk/docs/install))
+- Appropriate cloud provider CLI ([AWS](https://aws.amazon.com/cli/), [Azure](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli), [GCP](https://cloud.google.com/sdk/docs/install))
 
 #### Steps
 

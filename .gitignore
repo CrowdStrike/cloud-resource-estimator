@@ -130,3 +130,34 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Visual Studio Code
+#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
+#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+#  and can be added to the global gitignore or merged into this file. However, if you prefer,
+#  you could uncomment the following to ignore the enitre vscode folder
+.vscode/
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+
+# AI Assistants
+#  Various AI coding assistants create local cache, settings, and conversation history
+#  These contain user-specific data and should not be committed to version control
+.cursorignore
+.cursorindexingignore
+.claude/
+CLAUDE.md
+.anthropic/
+.openai/
+.codeium/
+.tabnine/
+.github-copilot/
+.roo/
+.aider/
+.aider*
+.clinerules/
+memory-bank/

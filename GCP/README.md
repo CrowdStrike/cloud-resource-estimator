@@ -18,15 +18,17 @@ No changes will be made to your account. No data will be sent anywhere and will 
 
 ## Project Filtering
 
-The GCP script automatically excludes Google system projects (`sys-*`) by default for better performance. These system projects typically don't contain billable resources relevant for CSPM benchmarking.
+The GCP script automatically excludes projects with `sys-*` prefixes by default. This improves performance because Google Apps Script commonly creates projects with this naming pattern that don't contain billable compute resources relevant for CSPM benchmarking.
+
+If you don't use Google Apps Script, or have legitimate projects that start with `sys-*` that should be included in the scan, you can enable scanning of these projects.
 
 ### Filtering Environment Variables
 
-**System Projects:**
+**sys-* Projects:**
 
 ```bash
-# Include Google system projects (default: false)
-export GCP_INCLUDE_SYSTEM_PROJECTS=true
+# Include projects starting with sys-* (default: false)
+export GCP_ENABLE_SYS_PROJECTS=true
 ./benchmark.sh gcp
 ```
 
