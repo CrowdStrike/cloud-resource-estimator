@@ -382,7 +382,7 @@ def should_skip_project(project: Project) -> bool:
     Determine if a project should be skipped during scanning based on filtering rules.
 
     Filtering rules (in order of precedence):
-    1. System projects (sys-*) are skipped by default unless GCP_INCLUDE_SYSTEM_PROJECTS=true
+    1. GCP projects starting with (sys-*) are skipped by default unless GCP_ENABLE_SYS_PROJECTS=true
     2. Include patterns (allowlist) - if set, only matching projects are processed
     3. Exclude patterns (denylist) - matching projects are skipped
 
@@ -390,10 +390,12 @@ def should_skip_project(project: Project) -> bool:
     """
     project_id = project.project_id
 
-    # 1. System projects (default skip unless explicitly included)
-    include_system = os.environ.get('GCP_INCLUDE_SYSTEM_PROJECTS', 'false').lower() == 'true'
-    if project_id.startswith('sys-') and not include_system:
-        log.info("Skipping system project: %s", project_id)
+    # 1. sys-* projects (default skip due to Apps Script)
+    enable_sys_projects = (
+        os.environ.get('GCP_ENABLE_SYS_PROJECTS', 'false').lower() == 'true'
+    )
+    if project_id.startswith('sys-') and not enable_sys_projects:
+        log.info("Skipping sys-* project: %s", project_id)
         return True
 
     # 2. Include patterns (allowlist - if set, only these patterns are processed)
@@ -524,7 +526,7 @@ processed_projects = 0
 
 log.info("Starting GCP project scan with parallel processing enabled")
 log.info("Environment variables:")
-log.info("  GCP_INCLUDE_SYSTEM_PROJECTS: %s", os.environ.get('GCP_INCLUDE_SYSTEM_PROJECTS', 'false'))
+log.info("  GCP_ENABLE_SYS_PROJECTS: %s", os.environ.get('GCP_ENABLE_SYS_PROJECTS', 'false'))
 log.info("  GCP_INCLUDE_PATTERNS: %s", os.environ.get('GCP_INCLUDE_PATTERNS', '(not set)'))
 log.info("  GCP_EXCLUDE_PATTERNS: %s", os.environ.get('GCP_EXCLUDE_PATTERNS', '(not set)'))
 log.info("  GCP_THREADS: %d", THREADS)
@@ -551,7 +553,7 @@ if not filtered_projects:
     log.error("Consider adjusting your filter settings:")
     log.error("  GCP_INCLUDE_PATTERNS: %s", os.environ.get('GCP_INCLUDE_PATTERNS', '(not set)'))
     log.error("  GCP_EXCLUDE_PATTERNS: %s", os.environ.get('GCP_EXCLUDE_PATTERNS', '(not set)'))
-    log.error("  GCP_INCLUDE_SYSTEM_PROJECTS: %s", os.environ.get('GCP_INCLUDE_SYSTEM_PROJECTS', 'false'))
+    log.error("  GCP_ENABLE_SYS_PROJECTS: %s", os.environ.get('GCP_ENABLE_SYS_PROJECTS', 'false'))
     exit(1)  # pylint: disable=consider-using-sys-exit
 
 # Process filtered projects in batches with parallel execution
