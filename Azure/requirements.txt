@@ -6,6 +6,7 @@
 #
 azure-identity
 azure-mgmt-resource
+azure-mgmt-resource-subscriptions
 azure-mgmt-containerservice
 azure-mgmt-compute
 azure-mgmt-containerinstance  
