@@ -51,15 +51,23 @@ export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `AZURE_SKIP_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to exclude from scanning |
-| `AZURE_INCLUDE_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to scan (exclusive filter) |
+| `AZURE_INCLUDE_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to scan (exclusive filter, takes full precedence) |
 
-**Note**: `AZURE_INCLUDE_SUBSCRIPTIONS` takes precedence over `AZURE_SKIP_SUBSCRIPTIONS` if both are set.
+**Important**:
+- `AZURE_INCLUDE_SUBSCRIPTIONS` takes **full precedence** - if set, `AZURE_SKIP_SUBSCRIPTIONS` is completely ignored
+- Use one or the other, not both
+- Invalid subscription IDs generate warnings but don't stop execution
+- Empty filter results exit with error code 1
 
 Example usage:
 
 ```shell
+# Skip specific subscriptions
 export AZURE_SKIP_SUBSCRIPTIONS="sub-id-1,sub-id-2"
-# or
+
+# OR (use one or the other, not both)
+
+# Include only specific subscriptions
 export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
 ```
 

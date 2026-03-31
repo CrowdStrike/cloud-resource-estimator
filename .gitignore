@@ -54,6 +54,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Local test files
+test_*.py
+test_*.sh
+
 # Translations
 *.mo
 *.pot
@@ -109,6 +113,7 @@ celerybeat.pid
 .venv
 env/
 venv/
+*-venv/
 ENV/
 env.bak/
 venv.bak/

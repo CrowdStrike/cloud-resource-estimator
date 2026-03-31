@@ -121,12 +121,22 @@ class AzureHandle:
 
         # Include list takes precedence over skip list
         if include_list:
-            include_set = {s.strip() for s in include_list.split(",")}
+            # Filter out empty strings from input
+            include_set = {s.strip() for s in include_list.split(",") if s.strip()}
+
+            # Validate that provided IDs exist
+            available_ids = {s.subscription_id for s in subscriptions}
+            invalid_ids = include_set - available_ids
+            if invalid_ids:
+                log.warning("The following subscription IDs in include list were not found: %s",
+                           ', '.join(sorted(invalid_ids)))
+
             filtered = [s for s in filtered if s.subscription_id in include_set]
             log.info("Include filter applied: processing %d of %d subscriptions",
                      len(filtered), len(subscriptions))
         elif skip_list:
-            skip_set = {s.strip() for s in skip_list.split(",")}
+            # Filter out empty strings from input
+            skip_set = {s.strip() for s in skip_list.split(",") if s.strip()}
             filtered = [s for s in filtered if s.subscription_id not in skip_set]
             log.info("Skip filter applied: processing %d of %d subscriptions (skipped %d)",
                      len(filtered), len(subscriptions), len(subscriptions) - len(filtered))
@@ -205,8 +215,14 @@ def main():
     totals = {'tenant_id': 'totals', 'subscription_id': 'totals', 'aks_nodes': 0, 'vms': 0, 'aci_containers': 0}
     az = AzureHandle()
 
-    # Get all subscriptions
-    all_subscriptions = az.subscriptions
+    # Get all subscriptions with error handling
+    try:
+        all_subscriptions = az.subscriptions
+    except Exception as e:
+        log.error("Failed to retrieve Azure subscriptions: %s", str(e))
+        log.error("Please ensure you are authenticated with 'az login' and have proper permissions")
+        return 1
+
     log.info("Discovered %d subscription(s) within %d tenant(s)",
              len(all_subscriptions), len(az.tenants))
 
@@ -235,7 +251,7 @@ def main():
 
     if not subscriptions:
         log.error("No subscriptions to process after filtering. Check your filter settings.")
-        return
+        return 1
 
     log.info("Processing %d subscription(s):", len(subscriptions))
     for sub in subscriptions:
@@ -264,7 +280,7 @@ def main():
             log.info("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
             row['vms'] += vm_count
 
-        # # (3) Process ACI
+        # (3) Process ACI
         for aci in az.aci_resources(subscription.subscription_id):
             container_count = sum(1 for container in az.container_aci(aci))
             log.info("Identified %d container resource(s) inside Container Group: '%s'", container_count, aci.name)
@@ -285,13 +301,15 @@ def main():
     # Output our results
     print(tabulate(data, headers=headers, tablefmt="grid"))
 
-    with open('az-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
+    with open('azure-benchmark.csv', 'w', newline='', encoding='utf-8') as csv_file:
         csv_writer = csv.DictWriter(csv_file, fieldnames=headers.keys())
         csv_writer.writeheader()
         csv_writer.writerows(data)
 
-    log.info("CSV summary has been exported to ./az-benchmark.csv file")
+    log.info("CSV summary has been exported to ./azure-benchmark.csv file")
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())

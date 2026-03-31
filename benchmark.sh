@@ -35,10 +35,11 @@ usage() {
         - AZURE_SKIP_SUBSCRIPTIONS: Comma-separated list of subscription IDs to exclude from scanning
         - AZURE_INCLUDE_SUBSCRIPTIONS: Comma-separated list of subscription IDs to scan (exclusive filter)
 
-        Note: AZURE_INCLUDE_SUBSCRIPTIONS takes precedence over AZURE_SKIP_SUBSCRIPTIONS
+        Note: AZURE_INCLUDE_SUBSCRIPTIONS takes full precedence. If set, AZURE_SKIP_SUBSCRIPTIONS is ignored.
 
-        Example:
+        Example (use one or the other, not both):
         export AZURE_SKIP_SUBSCRIPTIONS="sub-id-1,sub-id-2"
+        OR
         export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
         """
 }
