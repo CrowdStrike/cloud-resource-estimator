@@ -22,7 +22,7 @@ The `benchmark.sh` entrypoint script helps you to perform sizing calculations fo
 
 ## Configuration
 
-Each cloud provider supports various environment variables for performance tuning and filtering. Below are the key AWS configuration options (for complete configuration details, see the provider-specific README files):
+Each cloud provider supports various environment variables for performance tuning and filtering. Below are the key configuration options for each provider (for complete configuration details, see the provider-specific README files):
 
 ### AWS Configuration
 
@@ -46,14 +46,40 @@ To use, please export variables in your environment prior to running the script:
 export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 ```
 
-### Azure and GCP Configuration
+### Azure Configuration
 
-Azure and GCP also support performance tuning and filtering options. For complete configuration details:
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `AZURE_SKIP_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to exclude from scanning |
+| `AZURE_INCLUDE_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to scan (exclusive filter, takes full precedence) |
 
+**Important**:
+- `AZURE_INCLUDE_SUBSCRIPTIONS` takes **full precedence** - if set, `AZURE_SKIP_SUBSCRIPTIONS` is completely ignored
+- Use one or the other, not both
+- Invalid subscription IDs generate warnings but don't stop execution
+- Empty filter results exit with error code 1
+
+Example usage:
+
+```shell
+# Skip specific subscriptions
+export AZURE_SKIP_SUBSCRIPTIONS="sub-id-1,sub-id-2"
+
+# OR (use one or the other, not both)
+
+# Include only specific subscriptions
+export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
+```
+
+### GCP Configuration
+
+GCP supports performance tuning and filtering options including project filtering (with automatic sys-* project exclusion) and threading options.
+
+For complete configuration details, see the provider-specific README files:
+
+- **AWS**: See [AWS README](AWS/README.md) for detailed configuration options
 - **Azure**: See [Azure README](Azure/README.md) for subscription filtering and performance settings
 - **GCP**: See [GCP README](GCP/README.md) for project filtering (including sys-* project handling) and threading options
-
-**Note**: see [AWS Readme](AWS/README.md) for detailed configuration options.
 
 ## Usage
 

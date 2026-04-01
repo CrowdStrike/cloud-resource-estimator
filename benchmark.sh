@@ -24,12 +24,23 @@ usage() {
         - AWS_RESUME_FILE: File to store/resume progress (default: aws_benchmark_progress.json)
         - AWS_SKIP_ACCOUNTS: Comma-separated list of account IDs to skip
         - AWS_DRY_RUN: Set to 'true' to show what would be processed without making API calls
-        
+
         Example for large organizations (200+ accounts):
         export AWS_THREADS=3
         export AWS_BATCH_SIZE=12
         export AWS_BATCH_DELAY=45
         export AWS_API_DELAY=0.15
+
+    Azure:
+        - AZURE_SKIP_SUBSCRIPTIONS: Comma-separated list of subscription IDs to exclude from scanning
+        - AZURE_INCLUDE_SUBSCRIPTIONS: Comma-separated list of subscription IDs to scan (exclusive filter)
+
+        Note: AZURE_INCLUDE_SUBSCRIPTIONS takes full precedence. If set, AZURE_SKIP_SUBSCRIPTIONS is ignored.
+
+        Example (use one or the other, not both):
+        export AZURE_SKIP_SUBSCRIPTIONS="sub-id-1,sub-id-2"
+        OR
+        export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
         """
 }
 
@@ -92,6 +103,8 @@ call_benchmark_script() {
         [[ -n $AWS_DRY_RUN ]] && [[ $AWS_DRY_RUN == "true" ]] && args+=("--dry-run")
         ;;
     Azure)
+        [[ -n $AZURE_SKIP_SUBSCRIPTIONS ]] && args+=("--skip-subscriptions" "$AZURE_SKIP_SUBSCRIPTIONS")
+        [[ -n $AZURE_INCLUDE_SUBSCRIPTIONS ]] && args+=("--include-subscriptions" "$AZURE_INCLUDE_SUBSCRIPTIONS")
         ;;
     GCP)
         ;;
@@ -208,7 +221,7 @@ popd >/dev/null || exit
 deactivate
 
 echo "Type following command to export cloud counts:"
-echo "cat ./cloud-benchmark/*benchmark.csv"
+echo "cat ./cloud-benchmark/*-benchmark*.csv"
 
 # END
 #
