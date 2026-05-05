@@ -19,6 +19,56 @@ Reported Resources will include a count of each of the following resource types 
 | Active EKS Fargate Profiles | Active EKS Fargate Profiles for each EKS Cluster. Excludes any existing Falcon Profiles eg. fp-falcon* |
 | ECS Service Fargate Tasks | DesiredCount of tasks in Active ECS Services.  Excludes standalone tasks or tasks that are scheduled outside of Services |
   
+## 🔐 Least-Privilege IAM Policy
+
+This script requires only the following read-only actions. Attach this policy to the IAM role or user you use to run the script — do not use root credentials or `AdministratorAccess`.
+
+**For the management/payer account** (the identity that runs the script):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudResourceEstimatorManagement",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "sts:AssumeRole",
+        "organizations:ListAccounts"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**For each member account** (attach to the role the script assumes, e.g. `OrganizationAccountAccessRole`):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudResourceEstimatorReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:DescribeRegions",
+        "ec2:DescribeInstances",
+        "eks:ListClusters",
+        "eks:ListFargateProfiles",
+        "eks:DescribeFargateProfile",
+        "ecs:ListClusters",
+        "ecs:ListServices",
+        "ecs:DescribeServices"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
 ## ▶️ Usage
 
 ### Initialize execution environment
@@ -42,7 +92,12 @@ export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 ### Execute Script
 
 ```shell
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 ### Collect the findings
@@ -74,7 +129,12 @@ cat ./cloud-benchmark/*benchmark*.csv
 #### Standard Processing for Small Organizations (< 50 accounts) 
 ```shell
 # Default settings work well - no configuration needed
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 #### Fast Processing for Smaller Organizations (< 50 accounts)
@@ -83,7 +143,12 @@ export AWS_THREADS=8
 export AWS_BATCH_SIZE=50
 export AWS_BATCH_DELAY=15
 export AWS_API_DELAY=0.05
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 #### Medium Organizations (50-200 accounts)
@@ -91,7 +156,12 @@ curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main
 export AWS_THREADS=4
 export AWS_BATCH_SIZE=15
 export AWS_BATCH_DELAY=30
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 #### Large Organizations (200+ accounts)
@@ -100,7 +170,12 @@ export AWS_THREADS=2
 export AWS_BATCH_SIZE=10
 export AWS_BATCH_DELAY=60
 export AWS_API_DELAY=0.2
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 ### Resume Interrupted Runs
@@ -109,7 +184,12 @@ If the script times out or is interrupted, it automatically saves progress and c
 
 ```shell
 # The script will automatically resume from where it left off
-curl https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/main/benchmark.sh | bash
+RELEASE_VERSION="v1.0.0"
+curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
+curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
+  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
+  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+chmod +x benchmark.sh && ./benchmark.sh aws
 ```
 
 The script will display progress and automatically skip completed accounts.

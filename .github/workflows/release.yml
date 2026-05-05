@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release artifacts and checksums
+        run: |
+          list_of_files="benchmark.sh AWS/aws_cspm_benchmark.py Azure/azure_cspm_benchmark.py GCP/gcp_cspm_benchmark.py"
+
+          for file in $list_of_files; do
+            pushd $(dirname $file) > /dev/null
+            sha256sum $(basename $file)
+            popd > /dev/null
+          done > checksum.txt
+
+          gh release upload $TAG $list_of_files checksum.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
