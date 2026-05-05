@@ -3,7 +3,8 @@
 # Based on the cloud provider, downloads the necessary scripts
 # to perform a sizing calculation.
 
-base_url=https://raw.githubusercontent.com/CrowdStrike/Cloud-Benchmark/main
+RELEASE_VERSION="v1.0.0"
+base_url="https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/${RELEASE_VERSION}"
 
 # Usage message
 usage() {
