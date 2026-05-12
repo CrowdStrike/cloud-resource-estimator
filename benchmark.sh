@@ -9,7 +9,7 @@ base_url="https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator
 # Usage message
 usage() {
     echo """
-    Usage: $0 [OPTIONS] [aws|azure|gcp]...
+    Usage: $0 [OPTIONS] [aws|azure|gcp|oci]...
 
     The script recognizes the following environment variables:
 
@@ -42,6 +42,25 @@ usage() {
         export AZURE_SKIP_SUBSCRIPTIONS="sub-id-1,sub-id-2"
         OR
         export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
+
+    OCI:
+        - OCI_PROFILE: OCI config file profile name (optional, default: DEFAULT)
+        - OCI_TENANCY_OCID: Override tenancy OCID (optional, default: from config file)
+        - OCI_REGIONS: Comma-separated list of regions to scan (optional, default: all subscribed)
+        - OCI_SKIP_COMPARTMENTS: Comma-separated compartment OCIDs to exclude from scanning (optional)
+        - OCI_INCLUDE_COMPARTMENTS: Comma-separated compartment OCIDs to scan exclusively (optional)
+        - OCI_THREADS: Number of parallel scan workers (optional, default: 5)
+        - OCI_API_DELAY: Seconds to wait between API calls (optional, default: 0.05)
+        - OCI_MAX_RETRIES: Maximum retry attempts for failed operations (optional, default: 5)
+        - OCI_RESUME_FILE: File to store/resume progress (optional, default: oci_benchmark_progress.json)
+        - OCI_DRY_RUN: Set to 'true' to simulate without API calls (optional)
+
+        Note: OCI_INCLUDE_COMPARTMENTS takes full precedence. If set, OCI_SKIP_COMPARTMENTS is ignored.
+
+        Example (use one or the other, not both):
+        export OCI_SKIP_COMPARTMENTS="ocid1.compartment.oc1..example1,ocid1.compartment.oc1..example2"
+        OR
+        export OCI_INCLUDE_COMPARTMENTS="ocid1.compartment.oc1..example3"
         """
 }
 
@@ -76,6 +95,10 @@ is_valid_cloud() {
         echo "GCP"
         return 0
         ;;
+    oci)
+        echo "OCI"
+        return 0
+        ;;
     *)
         return 1
         ;;
@@ -108,6 +131,18 @@ call_benchmark_script() {
         [[ -n $AZURE_INCLUDE_SUBSCRIPTIONS ]] && args+=("--include-subscriptions" "$AZURE_INCLUDE_SUBSCRIPTIONS")
         ;;
     GCP)
+        ;;
+    OCI)
+        [[ -n $OCI_PROFILE ]]              && args+=("--profile" "$OCI_PROFILE")
+        [[ -n $OCI_TENANCY_OCID ]]         && args+=("--tenancy-id" "$OCI_TENANCY_OCID")
+        [[ -n $OCI_REGIONS ]]              && args+=("--regions" "$OCI_REGIONS")
+        [[ -n $OCI_SKIP_COMPARTMENTS ]]    && args+=("--skip-compartments" "$OCI_SKIP_COMPARTMENTS")
+        [[ -n $OCI_INCLUDE_COMPARTMENTS ]] && args+=("--include-compartments" "$OCI_INCLUDE_COMPARTMENTS")
+        [[ -n $OCI_THREADS ]]              && args+=("--threads" "$OCI_THREADS")
+        [[ -n $OCI_API_DELAY ]]            && args+=("--api-delay" "$OCI_API_DELAY")
+        [[ -n $OCI_MAX_RETRIES ]]          && args+=("--max-retries" "$OCI_MAX_RETRIES")
+        [[ -n $OCI_RESUME_FILE ]]          && args+=("--resume-file" "$OCI_RESUME_FILE")
+        [[ $OCI_DRY_RUN == "true" ]]       && args+=("--dry-run")
         ;;
     *)
         echo "Invalid cloud provider specified: $cloud"
@@ -155,6 +190,26 @@ audit() {
         python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
         file="${cloud}_cspm_benchmark.py"
         curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+        ;;
+    OCI)
+        # Use local OCI script if available
+        if [ -f "../OCI/oci_cspm_benchmark.py" ]; then
+            echo "Using local OCI CSPM benchmark script..."
+            file="../OCI/oci_cspm_benchmark.py"
+            if [ -f "../OCI/requirements.txt" ]; then
+                python3 -m pip install --disable-pip-version-check -qq -r "../OCI/requirements.txt"
+            else
+                curl -s -o requirements.txt "${base_url}/OCI/requirements.txt"
+                python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            fi
+        else
+            echo "Local OCI script not found, downloading from remote"
+            curl -s -o requirements.txt "${base_url}/OCI/requirements.txt"
+            echo "Installing python dependencies for communicating with OCI into (~/cloud-benchmark)"
+            python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            file="oci_cspm_benchmark.py"
+            curl -s -o "${file}" "${base_url}/OCI/${file}"
+        fi
         ;;
     *)
         echo "Unsupported cloud provider: $CLOUD"
@@ -208,6 +263,11 @@ if [ $# -eq 0 ]; then
 
     if type gcloud >/dev/null 2>&1; then
         audit "GCP"
+        found_provider=true
+    fi
+
+    if type oci >/dev/null 2>&1; then
+        audit "OCI"
         found_provider=true
     fi
 fi

@@ -3,7 +3,7 @@
 
 # CrowdStrike Cloud Resource Estimator
 
-This multi-cloud resource auditing utility helps organizations calculate the size of their cloud deployments across AWS, Azure, and Google Cloud Platform. It's designed for **CrowdStrike CWP/Horizon licensing calculations** and cloud security posture management (CSPM) benchmarking.
+This multi-cloud resource auditing utility helps organizations calculate the size of their cloud deployments across AWS, Azure, Google Cloud Platform, and Oracle Cloud Infrastructure. It's designed for **CrowdStrike CWP/Horizon licensing calculations** and cloud security posture management (CSPM) benchmarking.
 
 ## Security
 
@@ -24,7 +24,7 @@ The Cloud Resource Estimator performs **read-only** scanning of your cloud infra
 
 ## Running an audit
 
-The `benchmark.sh` entrypoint script helps you to perform sizing calculations for your cloud resources. It detects the cloud provider (AWS, Azure, or GCP) and downloads the necessary scripts to perform the calculation. You can also pass one or more cloud providers as arguments.
+The `benchmark.sh` entrypoint script helps you to perform sizing calculations for your cloud resources. It detects the cloud provider (AWS, Azure, GCP, or OCI) and downloads the necessary scripts to perform the calculation. You can also pass one or more cloud providers as arguments.
 
 ## Configuration
 
@@ -81,16 +81,46 @@ export AZURE_INCLUDE_SUBSCRIPTIONS="sub-id-3,sub-id-4"
 
 GCP supports performance tuning and filtering options including project filtering (with automatic sys-* project exclusion) and threading options.
 
+### OCI Configuration
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `OCI_PROFILE` | `DEFAULT` | OCI config file profile name |
+| `OCI_TENANCY_OCID` | from config | Override tenancy OCID |
+| `OCI_REGIONS` | all subscribed | Comma-separated list of regions to scan |
+| `OCI_SKIP_COMPARTMENTS` | None | Comma-separated compartment OCIDs to exclude |
+| `OCI_INCLUDE_COMPARTMENTS` | None | Comma-separated compartment OCIDs to scan (exclusive filter, takes full precedence) |
+| `OCI_THREADS` | `5` | Number of parallel scan workers |
+| `OCI_API_DELAY` | `0.05` | Seconds to wait between API calls |
+| `OCI_MAX_RETRIES` | `5` | Maximum retry attempts for failed operations |
+| `OCI_RESUME_FILE` | `oci_benchmark_progress.json` | Progress tracking file for resume support |
+| `OCI_DRY_RUN` | `false` | Set to `true` to simulate without API calls |
+
+**Important**: `OCI_INCLUDE_COMPARTMENTS` takes **full precedence** — if set, `OCI_SKIP_COMPARTMENTS` is completely ignored.
+
+Example usage:
+
+```shell
+# Skip specific compartments
+export OCI_SKIP_COMPARTMENTS="ocid1.compartment.oc1..example1,ocid1.compartment.oc1..example2"
+
+# OR (use one or the other, not both)
+
+# Include only specific compartments
+export OCI_INCLUDE_COMPARTMENTS="ocid1.compartment.oc1..example3"
+```
+
 For complete configuration details, see the provider-specific README files:
 
 - **AWS**: See [AWS README](AWS/README.md) for detailed configuration options
 - **Azure**: See [Azure README](Azure/README.md) for subscription filtering and performance settings
 - **GCP**: See [GCP README](GCP/README.md) for project filtering (including sys-* project handling) and threading options
+- **OCI**: See [OCI README](OCI/README.md) for compartment filtering, IAM policy setup, and threading options
 
 ## Usage
 
 ```shell
-./benchmark.sh [aws|azure|gcp]...
+./benchmark.sh [aws|azure|gcp|oci]...
 ```
 
 Below are two different ways to execute the script.
@@ -102,6 +132,7 @@ To execute the script in your environment using Cloud Shell, follow the appropri
 - [AWS](AWS/README.md)
 - [Azure](Azure/README.md)
 - [GCP](GCP/README.md)
+- [OCI](OCI/README.md)
 
 ### In your Local Environment
 
@@ -112,7 +143,7 @@ For those who prefer to run the script locally, or would like to run the script 
 - Python 3
 - pip
 - curl
-- Appropriate cloud provider CLI ([AWS](https://aws.amazon.com/cli/), [Azure](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli), [GCP](https://cloud.google.com/sdk/docs/install))
+- Appropriate cloud provider CLI ([AWS](https://aws.amazon.com/cli/), [Azure](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli), [GCP](https://cloud.google.com/sdk/docs/install), [OCI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm))
 
 #### Steps
 
