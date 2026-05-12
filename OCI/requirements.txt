@@ -1,0 +1,2 @@
+oci>=2.126.0
+tabulate
