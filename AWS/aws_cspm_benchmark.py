@@ -683,6 +683,10 @@ class AWSHandle:
         "alpha.eksctl.io/nodegroup-type",
         "aws:eks:cluster-name",
         "eks:nodegroup-name",
+        # Karpenter-launched nodes carry these instead of the nodegroup tags above
+        "eks:eks-cluster-name",
+        "karpenter.sh/nodepool",
+        "karpenter.sh/provisioner-name",
     ]
 
     def __init__(
@@ -855,7 +859,9 @@ class AWSHandle:
 
     @classmethod
     def is_vm_running(cls, vm):
-        return vm["State"]["Name"] != "stopped"
+        # DescribeInstances keeps terminated instances visible for up to ~1 hour,
+        # so anything not actively pending/running must not count as running.
+        return vm["State"]["Name"] in ("pending", "running")
 
     @property
     def account_id(self):
