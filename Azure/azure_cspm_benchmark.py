@@ -17,11 +17,12 @@ import os
 
 from functools import cached_property, lru_cache
 from azure.identity import AzureCliCredential
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 from azure.mgmt.resource.subscriptions import SubscriptionClient
 from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
+from azure.mgmt.appcontainers import ContainerAppsAPIClient
 import msrestazure.tools
 from tabulate import tabulate
 
@@ -30,7 +31,8 @@ headers = {
     'subscription_id': 'Azure Subscription ID',
     'aks_nodes': 'Kubernetes Nodes',
     'vms': 'Virtual Machines',
-    'aci_containers': 'Container Instances'
+    'aci_containers': 'Container Instances',
+    'container_app_replicas': 'Container App Replicas'
 }
 
 
@@ -70,10 +72,70 @@ class AzureHandle:
         return self.container_client(subscription_id).open_shift_managed_clusters.list()
 
     def container_vmss(self, aks_resource):
+        """Yield (pool_name, vm_count) for each VMSS backing an AKS cluster.
+
+        We enumerate VMSS in the cluster's node resource group rather than trusting
+        ``AgentPool.count``, which is ``None`` for autoscaler-managed and virtual-node
+        pools. Each AKS-managed VMSS carries an ``aks-managed-poolName`` tag we use
+        to attribute the count back to a node pool.
+        """
         parsed_id = msrestazure.tools.parse_resource_id(aks_resource.id)
-        client = self.container_client(parsed_id['subscription'])
-        return client.agent_pools.list(resource_group_name=parsed_id['resource_group'],
-                                       resource_name=parsed_id['resource_name'])
+        subscription_id = parsed_id['subscription']
+        cluster = self.container_client(subscription_id).managed_clusters.get(
+            resource_group_name=parsed_id['resource_group'],
+            resource_name=parsed_id['resource_name'],
+        )
+        node_rg = cluster.node_resource_group
+        compute = self.compute_client(subscription_id)
+        for vmss in compute.virtual_machine_scale_sets.list(resource_group_name=node_rg):
+            tags = vmss.tags or {}
+            pool_name = tags.get('aks-managed-poolName') or tags.get('poolName') or vmss.name
+            vm_count = sum(1 for _ in compute.virtual_machine_scale_set_vms.list(
+                resource_group_name=node_rg, virtual_machine_scale_set_name=vmss.name))
+            yield pool_name, vm_count
+
+    def container_apps(self, subscription_id):
+        """List all Container Apps in a subscription."""
+        return self.container_apps_client(subscription_id).container_apps.list_by_subscription()
+
+    def container_app_running_replicas(self, container_app):
+        """Return the currently running replica count for a Container App.
+
+        Container Apps scale per-revision. For each *active* revision we
+        enumerate its replicas via the ``container_apps_revision_replicas``
+        subresource and count only those whose ``running_state`` is
+        ``"Running"``. This excludes replicas that the portal shows as
+        ``Provisioning``, ``Failed``, ``Degraded``, ``Stopped``, or
+        ``Unknown`` — ``revision.replicas`` on its own includes all of
+        those, which over-counts live workload.
+        """
+        parsed_id = msrestazure.tools.parse_resource_id(container_app.id)
+        rg = parsed_id['resource_group']
+        app_name = parsed_id['resource_name']
+        client = self.container_apps_client(parsed_id['subscription'])
+        total = 0
+        revisions = client.container_apps_revisions.list_revisions(
+            resource_group_name=rg,
+            container_app_name=app_name,
+        )
+        for revision in revisions:
+            if not getattr(revision, 'active', False):
+                continue
+            try:
+                replicas = client.container_apps_revision_replicas.list_replicas(
+                    resource_group_name=rg,
+                    container_app_name=app_name,
+                    revision_name=revision.name,
+                )
+            except Exception as e:  # pylint: disable=broad-except
+                log.warning("Failed to list replicas for Container App '%s' revision '%s': %s",
+                            app_name, revision.name, e)
+                continue
+            # list_replicas returns a ReplicaCollection wrapper, not a paged iterator.
+            for replica in getattr(replicas, 'value', []) or []:
+                if getattr(replica, 'running_state', None) == 'Running':
+                    total += 1
+        return total
 
     def container_aci(self, aci_resource):
         parsed_id = msrestazure.tools.parse_resource_id(aci_resource.id)
@@ -83,9 +145,13 @@ class AzureHandle:
 
     def vms_inside_vmss(self, vmss_resource):
         parsed_id = msrestazure.tools.parse_resource_id(vmss_resource.id)
-        client = ComputeManagementClient(self.creds, parsed_id['subscription'])
+        client = self.compute_client(parsed_id['subscription'])
         return client.virtual_machine_scale_set_vms.list(resource_group_name=parsed_id['resource_group'],
                                                          virtual_machine_scale_set_name=vmss_resource.name)
+
+    @lru_cache
+    def compute_client(self, subscription_id):
+        return ComputeManagementClient(self.creds, subscription_id)
 
     @lru_cache
     def container_client(self, subscription_id):
@@ -94,6 +160,10 @@ class AzureHandle:
     @lru_cache
     def container_instance_client(self, subscription_id):
         return ContainerInstanceManagementClient(self.creds, subscription_id)
+
+    @lru_cache
+    def container_apps_client(self, subscription_id):
+        return ContainerAppsAPIClient(self.creds, subscription_id)
 
     @lru_cache
     def resource_client(self, subscription_id):
@@ -212,7 +282,8 @@ def main():
     args = parse_args()
 
     data = []
-    totals = {'tenant_id': 'totals', 'subscription_id': 'totals', 'aks_nodes': 0, 'vms': 0, 'aci_containers': 0}
+    totals = {'tenant_id': 'totals', 'subscription_id': 'totals',
+              'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
     az = AzureHandle()
 
     # Get all subscriptions with error handling
@@ -260,15 +331,15 @@ def main():
     # Process each subscription
     for subscription in subscriptions:
         row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
-               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0}
+               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
         log.info("Processing Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
 
         # (1) Process AKS
         for aks in az.aks_resources(subscription.subscription_id):
-            for node_pool in az.container_vmss(aks):
+            for pool_name, node_count in az.container_vmss(aks):
                 log.info("Identified node pool: '%s' within AKS: '%s' with %d node(s)",
-                         node_pool.name, aks.name, node_pool.count)
-                row['aks_nodes'] += node_pool.count
+                         pool_name, aks.name, node_count)
+                row['aks_nodes'] += node_count
 
         # (2) Process VMSS
         for vmss in az.vmss_resources(subscription.subscription_id):
@@ -290,11 +361,25 @@ def main():
         vm_count = sum((1 for vm in az.vms_resources(subscription.subscription_id)))
         log.info('Identified %d vm resource(s) outside of Scale Sets', vm_count)
         row['vms'] += vm_count
+
+        # (5) Process Azure Container Apps
+        try:
+            for app in az.container_apps(subscription.subscription_id):
+                replicas = az.container_app_running_replicas(app)
+                log.info("Identified %d running replica(s) for Container App: '%s'", replicas, app.name)
+                row['container_app_replicas'] += replicas
+        except Exception as e:  # pylint: disable=broad-except
+            # Subscriptions without the Microsoft.App resource provider registered will 404;
+            # log and move on rather than fail the whole run.
+            log.warning("Failed to enumerate Container Apps in subscription %s: %s",
+                        subscription.subscription_id, e)
+
         data.append(row)
 
         totals['vms'] += row['vms']
         totals['aks_nodes'] += row['aks_nodes']
         totals['aci_containers'] += row['aci_containers']
+        totals['container_app_replicas'] += row['container_app_replicas']
 
     data.append(totals)
 

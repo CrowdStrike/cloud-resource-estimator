@@ -149,12 +149,26 @@ audit() {
         fi
         ;;
     Azure|GCP)
-        # Use remote scripts for Azure and GCP (unchanged behavior)
-        curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
-        echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
-        python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
-        file="${cloud}_cspm_benchmark.py"
-        curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+        # Use local script if available (Azure), otherwise fall back to remote
+        if [ "$CLOUD" = "Azure" ] && [ -f "../Azure/azure_cspm_benchmark.py" ]; then
+            echo "Using local Azure CSPM benchmark script..."
+            file="../Azure/azure_cspm_benchmark.py"
+
+            # Install requirements from local Azure directory
+            if [ -f "../Azure/requirements.txt" ]; then
+                python3 -m pip install --disable-pip-version-check -qq -r "../Azure/requirements.txt"
+            else
+                echo "Azure requirements.txt not found locally, downloading from remote"
+                curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
+                python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            fi
+        else
+            curl -s -o requirements.txt "${base_url}/${CLOUD}/requirements.txt"
+            echo "Installing python dependencies for communicating with ${CLOUD} into (~/cloud-benchmark)"
+            python3 -m pip install --disable-pip-version-check -qq -r requirements.txt
+            file="${cloud}_cspm_benchmark.py"
+            curl -s -o "${file}" "${base_url}/${CLOUD}/${file}"
+        fi
         ;;
     *)
         echo "Unsupported cloud provider: $CLOUD"

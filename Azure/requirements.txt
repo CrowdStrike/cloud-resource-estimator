@@ -9,7 +9,8 @@ azure-mgmt-resource
 azure-mgmt-resource-subscriptions
 azure-mgmt-containerservice
 azure-mgmt-compute
-azure-mgmt-containerinstance  
+azure-mgmt-containerinstance
+azure-mgmt-appcontainers
 msrestazure
 pyjwt>=2.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
 tabulate
