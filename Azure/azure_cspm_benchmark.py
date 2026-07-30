@@ -17,7 +17,7 @@ import os
 
 from functools import cached_property, lru_cache
 from azure.identity import AzureCliCredential
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource.resources import ResourceManagementClient
 from azure.mgmt.resource.subscriptions import SubscriptionClient
 from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
