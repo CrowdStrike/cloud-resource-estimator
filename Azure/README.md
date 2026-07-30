@@ -13,7 +13,7 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ### Run the script
 
 ```shell
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell

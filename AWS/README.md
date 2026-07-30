@@ -92,7 +92,7 @@ export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 ### Execute Script
 
 ```shell
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
@@ -129,7 +129,7 @@ cat ./cloud-benchmark/*benchmark*.csv
 #### Standard Processing for Small Organizations (< 50 accounts) 
 ```shell
 # Default settings work well - no configuration needed
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
@@ -143,7 +143,7 @@ export AWS_THREADS=8
 export AWS_BATCH_SIZE=50
 export AWS_BATCH_DELAY=15
 export AWS_API_DELAY=0.05
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
@@ -156,7 +156,7 @@ chmod +x benchmark.sh && ./benchmark.sh aws
 export AWS_THREADS=4
 export AWS_BATCH_SIZE=15
 export AWS_BATCH_DELAY=30
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
@@ -170,7 +170,7 @@ export AWS_THREADS=2
 export AWS_BATCH_SIZE=10
 export AWS_BATCH_DELAY=60
 export AWS_API_DELAY=0.2
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
@@ -184,7 +184,7 @@ If the script times out or is interrupted, it automatically saves progress and c
 
 ```shell
 # The script will automatically resume from where it left off
-RELEASE_VERSION="v1.0.0"
+RELEASE_VERSION="v1.0.1"
 curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
 curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
   | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
