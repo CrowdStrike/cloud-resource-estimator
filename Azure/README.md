@@ -121,6 +121,25 @@ The script returns standard exit codes for automation:
 |--------|---------------------|-------------|
 | `--skip-subscriptions` | `AZURE_SKIP_SUBSCRIPTIONS` | Comma-separated list of subscription IDs to exclude from scanning |
 | `--include-subscriptions` | `AZURE_INCLUDE_SUBSCRIPTIONS` | Comma-separated list of subscription IDs to scan (exclusive filter, takes full precedence) |
+| — | `AZURE_CLOUD_NAME` | Azure cloud to target: `AzureCloud` or `AzureUSGovernment`. Defaults to the cloud the Azure CLI is set to |
+
+### Azure Government
+
+The script targets whichever cloud the Azure CLI is pointed at, so in Azure
+Government Cloud Shell it works with no extra configuration — `az cloud show`
+already reports `AzureUSGovernment` there. The cloud it resolved is logged on
+startup:
+
+```
+INFO  Targeting Azure cloud 'AzureUSGovernment' (ARM endpoint https://management.usgovcloudapi.net/)
+```
+
+Set `AZURE_CLOUD_NAME` only to override that detection.
+
+This matters because a cloud mismatch does not surface as an authentication
+error. ARM accepts the token and returns an empty subscription list, so pointing
+at the wrong cloud yields zero resources rather than a failure. The script treats
+zero visible subscriptions as an error and names the cloud and endpoint it used.
 
 ### Usage with benchmark.sh
 

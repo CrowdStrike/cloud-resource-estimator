@@ -58,6 +58,7 @@ export AWS_ASSUME_ROLE_NAME="Example-Role-Name"
 | :--- | :--- | :--- |
 | `AZURE_SKIP_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to exclude from scanning |
 | `AZURE_INCLUDE_SUBSCRIPTIONS` | None | Comma-separated list of subscription IDs to scan (exclusive filter, takes full precedence) |
+| `AZURE_CLOUD_NAME` | Detected from Azure CLI | Azure cloud to target: `AzureCloud` or `AzureUSGovernment`. Only needed to override detection |
 
 **Important**:
 - `AZURE_INCLUDE_SUBSCRIPTIONS` takes **full precedence** - if set, `AZURE_SKIP_SUBSCRIPTIONS` is completely ignored

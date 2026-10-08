@@ -14,6 +14,7 @@ import csv
 import logging
 import argparse
 import os
+import subprocess
 
 from functools import cached_property, lru_cache
 from azure.identity import AzureCliCredential
@@ -24,8 +25,18 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 from azure.mgmt.appcontainers import ContainerAppsAPIClient
 from azure.mgmt.web import WebSiteManagementClient
+from msrestazure.azure_cloud import AZURE_PUBLIC_CLOUD, AZURE_US_GOV_CLOUD
 import msrestazure.tools
 from tabulate import tabulate
+
+# The SDK clients default to commercial ARM regardless of which cloud the CLI is
+# pointed at, and a cross-cloud ARM call returns an empty subscription list rather
+# than an error -- so without this the script reports zero resources in Gov instead
+# of failing. Keyed by the names 'az cloud list' reports.
+CLOUDS = {
+    'AzureCloud': AZURE_PUBLIC_CLOUD,
+    'AzureUSGovernment': AZURE_US_GOV_CLOUD,
+}
 
 headers = {
     'tenant_id': 'Azure Tenant ID',
@@ -41,9 +52,16 @@ headers = {
 
 
 class AzureHandle:
-    def __init__(self):
+    def __init__(self, cloud_name):
         # Acquire a credential object using CLI-based authentication.
         self.creds = AzureCliCredential()
+        self.cloud_name = cloud_name
+        self.base_url = CLOUDS[cloud_name].endpoints.resource_manager
+        self.credential_scopes = [self.base_url.rstrip('/') + '/.default']
+
+    @property
+    def client_args(self):
+        return {'base_url': self.base_url, 'credential_scopes': self.credential_scopes}
 
     @cached_property
     def subscriptions(self):
@@ -189,31 +207,31 @@ class AzureHandle:
 
     @lru_cache
     def compute_client(self, subscription_id):
-        return ComputeManagementClient(self.creds, subscription_id)
+        return ComputeManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_client(self, subscription_id):
-        return ContainerServiceClient(self.creds, subscription_id)
+        return ContainerServiceClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_instance_client(self, subscription_id):
-        return ContainerInstanceManagementClient(self.creds, subscription_id)
+        return ContainerInstanceManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_apps_client(self, subscription_id):
-        return ContainerAppsAPIClient(self.creds, subscription_id)
+        return ContainerAppsAPIClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def web_client(self, subscription_id):
-        return WebSiteManagementClient(self.creds, subscription_id)
+        return WebSiteManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def resource_client(self, subscription_id):
-        return ResourceManagementClient(self.creds, subscription_id)
+        return ResourceManagementClient(self.creds, subscription_id, **self.client_args)
 
     @cached_property
     def subscription_client(self):
-        return SubscriptionClient(self.creds)
+        return SubscriptionClient(self.creds, **self.client_args)
 
     def filter_subscriptions(self, subscriptions, skip_list=None, include_list=None):
         """
@@ -319,15 +337,47 @@ for mod in ['azure.identity._internal.decorators', 'azure.core.pipeline.policies
     logging.getLogger(mod).setLevel(logging.WARNING)
 
 
+def resolve_cloud_name():
+    """Return the Azure cloud to target, e.g. 'AzureCloud' or 'AzureUSGovernment'.
+
+    Defaults to whatever cloud the Azure CLI is pointed at, which is already correct
+    in Cloud Shell for both commercial and Government. AZURE_CLOUD_NAME overrides it.
+    """
+    override = os.environ.get('AZURE_CLOUD_NAME')
+    if override:
+        return override.strip()
+
+    try:
+        result = subprocess.run(
+            ['az', 'cloud', 'show', '--query', 'name', '--output', 'tsv'],
+            capture_output=True, text=True, check=True, timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        log.error("Could not determine the active Azure cloud from the CLI: %s", e)
+        log.error("Set AZURE_CLOUD_NAME to one of: %s", ', '.join(sorted(CLOUDS)))
+        return None
+
+    return result.stdout.strip()
+
+
 def main():
     """Main execution function."""
     args = parse_args()
+
+    cloud_name = resolve_cloud_name()
+    if cloud_name is None:
+        return 1
+    if cloud_name not in CLOUDS:
+        log.error("Unsupported Azure cloud '%s'. Supported: %s",
+                  cloud_name, ', '.join(sorted(CLOUDS)))
+        return 1
 
     data = []
     totals = {'tenant_id': 'totals', 'subscription_id': 'totals',
               'aks_nodes': 0, 'vms': 0, 'vmss_instances': 0, 'aci_containers': 0,
               'container_app_replicas': 0, 'web_apps': 0, 'function_apps': 0}
-    az = AzureHandle()
+    az = AzureHandle(cloud_name)
+    log.info("Targeting Azure cloud '%s' (ARM endpoint %s)", az.cloud_name, az.base_url)
 
     # Get all subscriptions with error handling
     try:
@@ -339,6 +389,15 @@ def main():
 
     log.info("Discovered %d subscription(s) within %d tenant(s)",
              len(all_subscriptions), len(az.tenants))
+
+    # A cloud mismatch is not an error at the API level: ARM authenticates the token
+    # and returns an empty list, so say so explicitly rather than reporting zeroes.
+    if not all_subscriptions:
+        log.error("No subscriptions are visible in cloud '%s' (ARM endpoint %s).",
+                  az.cloud_name, az.base_url)
+        log.error("If that is the wrong cloud, run 'az cloud set --name <cloud>' "
+                  "or set AZURE_CLOUD_NAME to one of: %s", ', '.join(sorted(CLOUDS)))
+        return 1
 
     # Apply filtering
     subscriptions = az.filter_subscriptions(
