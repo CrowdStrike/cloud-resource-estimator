@@ -32,6 +32,7 @@ headers = {
     'subscription_id': 'Azure Subscription ID',
     'aks_nodes': 'Kubernetes Nodes',
     'vms': 'Virtual Machines',
+    'vmss_instances': 'Scale Set Instances',
     'aci_containers': 'Container Instances',
     'container_app_replicas': 'Container App Replicas',
     'web_apps': 'Web Apps',
@@ -65,8 +66,17 @@ class AzureHandle:
         return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachineScaleSets'")
 
     def vms_resources(self, subscription_id):
-        client = self.resource_client(subscription_id)
-        return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachines'")
+        """Yield VMs that are not members of a scale set.
+
+        Flexible-orchestration VMSS members are real ``Microsoft.Compute/virtualMachines``
+        resources and carry a ``virtual_machine_scale_set`` backreference. They are
+        already counted as scale set instances, so skipping them here stops the same
+        machine landing in both columns. Uniform-orchestration members are not VM
+        resources at all and never show up in this listing.
+        """
+        for vm in self.compute_client(subscription_id).virtual_machines.list_all():
+            if vm.virtual_machine_scale_set is None:
+                yield vm
 
     def managed_clusters(self, subscription_id):
         return self.container_client(subscription_id).managed_clusters.list()
@@ -315,8 +325,8 @@ def main():
 
     data = []
     totals = {'tenant_id': 'totals', 'subscription_id': 'totals',
-              'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0,
-              'web_apps': 0, 'function_apps': 0}
+              'aks_nodes': 0, 'vms': 0, 'vmss_instances': 0, 'aci_containers': 0,
+              'container_app_replicas': 0, 'web_apps': 0, 'function_apps': 0}
     az = AzureHandle()
 
     # Get all subscriptions with error handling
@@ -364,8 +374,8 @@ def main():
     # Process each subscription
     for subscription in subscriptions:
         row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
-               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0,
-               'web_apps': 0, 'function_apps': 0}
+               'aks_nodes': 0, 'vms': 0, 'vmss_instances': 0, 'aci_containers': 0,
+               'container_app_replicas': 0, 'web_apps': 0, 'function_apps': 0}
         log.info("Processing Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
 
         # (1) Process AKS
@@ -383,7 +393,7 @@ def main():
 
             vm_count = sum(1 for vm in az.vms_inside_vmss(vmss))
             log.info("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
-            row['vms'] += vm_count
+            row['vmss_instances'] += vm_count
 
         # (3) Process ACI
         for aci in az.aci_resources(subscription.subscription_id):
@@ -424,6 +434,7 @@ def main():
         data.append(row)
 
         totals['vms'] += row['vms']
+        totals['vmss_instances'] += row['vmss_instances']
         totals['aks_nodes'] += row['aks_nodes']
         totals['aci_containers'] += row['aci_containers']
         totals['container_app_replicas'] += row['container_app_replicas']
