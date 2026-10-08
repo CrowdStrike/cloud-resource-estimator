@@ -3,6 +3,17 @@
 This script is a read-only utility that counts cloud resources in your Azure account.
 No changes will be made to your account. No data will be sent anywhere and will remain in your cloud shell environment.
 
+## Supported Resource Types
+
+The Azure script counts the following resource types:
+- **Virtual Machines** (standalone VMs)
+- **Virtual Machine Scale Sets** (VMSS instances)
+- **Azure Kubernetes Service** (AKS node count)
+- **Azure Container Instances** (ACI containers)
+- **Azure Container Apps** (running replicas)
+- **Web Apps** (Azure App Service web applications)
+- **Function Apps** (Azure Functions)
+
 ## How to use
 
 ### Initialize execution environment

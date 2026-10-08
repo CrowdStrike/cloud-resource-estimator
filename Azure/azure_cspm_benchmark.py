@@ -23,6 +23,7 @@ from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 from azure.mgmt.appcontainers import ContainerAppsAPIClient
+from azure.mgmt.web import WebSiteManagementClient
 import msrestazure.tools
 from tabulate import tabulate
 
@@ -32,7 +33,9 @@ headers = {
     'aks_nodes': 'Kubernetes Nodes',
     'vms': 'Virtual Machines',
     'aci_containers': 'Container Instances',
-    'container_app_replicas': 'Container App Replicas'
+    'container_app_replicas': 'Container App Replicas',
+    'web_apps': 'Web Apps',
+    'function_apps': 'Function Apps'
 }
 
 
@@ -97,6 +100,17 @@ class AzureHandle:
     def container_apps(self, subscription_id):
         """List all Container Apps in a subscription."""
         return self.container_apps_client(subscription_id).container_apps.list_by_subscription()
+
+    def web_apps_resources(self, subscription_id):
+        """List all Web Apps in a subscription."""
+        client = self.web_client(subscription_id)
+        return client.web_apps.list()
+
+    def function_apps_resources(self, subscription_id):
+        """List all Function Apps in a subscription."""
+        client = self.web_client(subscription_id)
+        # Function Apps are a subset of Web Apps with kind containing 'functionapp'
+        return [app for app in client.web_apps.list() if app.kind and 'functionapp' in app.kind.lower()]
 
     def container_app_running_replicas(self, container_app):
         """Return the currently running replica count for a Container App.
@@ -164,6 +178,10 @@ class AzureHandle:
     @lru_cache
     def container_apps_client(self, subscription_id):
         return ContainerAppsAPIClient(self.creds, subscription_id)
+
+    @lru_cache
+    def web_client(self, subscription_id):
+        return WebSiteManagementClient(self.creds, subscription_id)
 
     @lru_cache
     def resource_client(self, subscription_id):
@@ -283,7 +301,8 @@ def main():
 
     data = []
     totals = {'tenant_id': 'totals', 'subscription_id': 'totals',
-              'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
+              'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0,
+              'web_apps': 0, 'function_apps': 0}
     az = AzureHandle()
 
     # Get all subscriptions with error handling
@@ -331,7 +350,8 @@ def main():
     # Process each subscription
     for subscription in subscriptions:
         row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
-               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
+               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0,
+               'web_apps': 0, 'function_apps': 0}
         log.info("Processing Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
 
         # (1) Process AKS
@@ -374,12 +394,36 @@ def main():
             log.warning("Failed to enumerate Container Apps in subscription %s: %s",
                         subscription.subscription_id, e)
 
+        # (6) Process Web Apps
+        try:
+            web_apps = list(az.web_apps_resources(subscription.subscription_id))
+            # Filter out Function Apps from Web Apps count (they'll be counted separately)
+            web_apps_only = [app for app in web_apps if not (app.kind and 'functionapp' in app.kind.lower())]
+            web_app_count = len(web_apps_only)
+            log.info("Identified %d Web App(s)", web_app_count)
+            row['web_apps'] += web_app_count
+        except Exception as e:  # pylint: disable=broad-except
+            log.warning("Failed to enumerate Web Apps in subscription %s: %s",
+                        subscription.subscription_id, e)
+
+        # (7) Process Function Apps
+        try:
+            function_apps = list(az.function_apps_resources(subscription.subscription_id))
+            function_app_count = len(function_apps)
+            log.info("Identified %d Function App(s)", function_app_count)
+            row['function_apps'] += function_app_count
+        except Exception as e:  # pylint: disable=broad-except
+            log.warning("Failed to enumerate Function Apps in subscription %s: %s",
+                        subscription.subscription_id, e)
+
         data.append(row)
 
         totals['vms'] += row['vms']
         totals['aks_nodes'] += row['aks_nodes']
         totals['aci_containers'] += row['aci_containers']
         totals['container_app_replicas'] += row['container_app_replicas']
+        totals['web_apps'] += row['web_apps']
+        totals['function_apps'] += row['function_apps']
 
     data.append(totals)
 
