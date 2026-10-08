@@ -3,8 +3,8 @@
 # Based on the cloud provider, downloads the necessary scripts
 # to perform a sizing calculation.
 
-RELEASE_VERSION="v1.0.1"
-base_url="https://raw.githubusercontent.com/CrowdStrike/cloud-resource-estimator/${RELEASE_VERSION}"
+ESTIMATOR_REF="add-azure-app-services"
+base_url="https://raw.githubusercontent.com/mikedzikowski/cloud-resource-estimator/${ESTIMATOR_REF}"
 
 # Usage message
 usage() {

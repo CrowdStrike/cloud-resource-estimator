@@ -9,7 +9,7 @@ This multi-cloud resource auditing utility helps organizations calculate the siz
 
 - All output (CSV, progress file) is written locally — nothing is sent to CrowdStrike or any external service automatically.
 - **Least-privilege recommendation:** This script requires read-only permissions only. Do not run it with root account credentials or `AdministratorAccess`. Use a dedicated IAM role scoped to the actions the script needs (`ec2:Describe*`, `ecs:List*`/`Describe*`, `eks:List*`/`Describe*`, `organizations:ListAccounts`).
-- Each release ships a `checksum.txt`. Verify the download before running (see installation steps below).
+- This fork is distributed from the `add-azure-app-services` branch rather than a tagged release, so there is no `checksum.txt` to verify against. Review `benchmark.sh` before running it.
 
 ## What This Tool Does
 
@@ -116,14 +116,10 @@ For those who prefer to run the script locally, or would like to run the script 
 
 #### Steps
 
-1. Download the script and verify its checksum:
+1. Download the script:
 
     ```shell
-    RELEASE_VERSION="v1.0.1"
-    curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
-    curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
-      | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
-      # | grep benchmark.sh | shasum -a 256 -c  # macOS
+    curl -sLO "https://raw.githubusercontent.com/mikedzikowski/cloud-resource-estimator/add-azure-app-services/benchmark.sh"
     ```
 
 1. Set execution permissions:

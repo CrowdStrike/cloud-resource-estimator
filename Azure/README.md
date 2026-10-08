@@ -24,11 +24,7 @@ The Azure script counts the following resource types:
 ### Run the script
 
 ```shell
-RELEASE_VERSION="v1.0.1"
-curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
-curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
-  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
-  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+curl -sLO "https://raw.githubusercontent.com/mikedzikowski/cloud-resource-estimator/add-azure-app-services/benchmark.sh"
 chmod +x benchmark.sh && ./benchmark.sh azure
 ```
 
