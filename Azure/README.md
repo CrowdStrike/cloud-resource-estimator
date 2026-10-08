@@ -3,6 +3,25 @@
 This script is a read-only utility that counts cloud resources in your Azure account.
 No changes will be made to your account. No data will be sent anywhere and will remain in your cloud shell environment.
 
+## Supported Resource Types
+
+The Azure script counts the following resource types:
+- **Virtual Machines** (standalone VMs)
+- **Virtual Machine Scale Sets** (VMSS instances)
+- **Azure Kubernetes Service** (AKS node count)
+- **Azure Container Instances** (ACI containers)
+- **Azure Container Apps** (running replicas)
+- **Web Apps** (Azure App Service web applications)
+- **Function Apps** (Azure Functions)
+
+Two kinds of `Microsoft.Web/sites` are deliberately **not** counted:
+
+- **Logic Apps (Standard)** — these run on the Functions host and report a kind of
+  `functionapp,workflowapp`, but they are neither a Web App nor a Function App.
+- **Sites hosted on Azure Container Apps** (kind contains `azurecontainerapps`) —
+  these are already counted under Container App Replicas, so counting them again
+  would double-count the same workload.
+
 ## How to use
 
 ### Initialize execution environment
@@ -13,11 +32,7 @@ No changes will be made to your account. No data will be sent anywhere and will 
 ### Run the script
 
 ```shell
-RELEASE_VERSION="v1.0.1"
-curl -sLO "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/benchmark.sh"
-curl -sL "https://github.com/CrowdStrike/cloud-resource-estimator/releases/download/${RELEASE_VERSION}/checksum.txt" \
-  | grep benchmark.sh | sha256sum -c        # Linux / CloudShell
-  # | grep benchmark.sh | shasum -a 256 -c  # macOS
+curl -sLO "https://raw.githubusercontent.com/mikedzikowski/cloud-resource-estimator/add-azure-app-services/benchmark.sh"
 chmod +x benchmark.sh && ./benchmark.sh azure
 ```
 
@@ -106,6 +121,25 @@ The script returns standard exit codes for automation:
 |--------|---------------------|-------------|
 | `--skip-subscriptions` | `AZURE_SKIP_SUBSCRIPTIONS` | Comma-separated list of subscription IDs to exclude from scanning |
 | `--include-subscriptions` | `AZURE_INCLUDE_SUBSCRIPTIONS` | Comma-separated list of subscription IDs to scan (exclusive filter, takes full precedence) |
+| — | `AZURE_CLOUD_NAME` | Azure cloud to target: `AzureCloud` or `AzureUSGovernment`. Defaults to the cloud the Azure CLI is set to |
+
+### Azure Government
+
+The script targets whichever cloud the Azure CLI is pointed at, so in Azure
+Government Cloud Shell it works with no extra configuration — `az cloud show`
+already reports `AzureUSGovernment` there. The cloud it resolved is logged on
+startup:
+
+```
+INFO  Targeting Azure cloud 'AzureUSGovernment' (ARM endpoint https://management.usgovcloudapi.net/)
+```
+
+Set `AZURE_CLOUD_NAME` only to override that detection.
+
+This matters because a cloud mismatch does not surface as an authentication
+error. ARM accepts the token and returns an empty subscription list, so pointing
+at the wrong cloud yields zero resources rather than a failure. The script treats
+zero visible subscriptions as an error and names the cloud and endpoint it used.
 
 ### Usage with benchmark.sh
 

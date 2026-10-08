@@ -14,6 +14,7 @@ import csv
 import logging
 import argparse
 import os
+import subprocess
 
 from functools import cached_property, lru_cache
 from azure.identity import AzureCliCredential
@@ -23,23 +24,44 @@ from azure.mgmt.containerservice import ContainerServiceClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
 from azure.mgmt.appcontainers import ContainerAppsAPIClient
+from azure.mgmt.web import WebSiteManagementClient
+from msrestazure.azure_cloud import AZURE_PUBLIC_CLOUD, AZURE_US_GOV_CLOUD
 import msrestazure.tools
 from tabulate import tabulate
+
+# The SDK clients default to commercial ARM regardless of which cloud the CLI is
+# pointed at, and a cross-cloud ARM call returns an empty subscription list rather
+# than an error -- so without this the script reports zero resources in Gov instead
+# of failing. Keyed by the names 'az cloud list' reports.
+CLOUDS = {
+    'AzureCloud': AZURE_PUBLIC_CLOUD,
+    'AzureUSGovernment': AZURE_US_GOV_CLOUD,
+}
 
 headers = {
     'tenant_id': 'Azure Tenant ID',
     'subscription_id': 'Azure Subscription ID',
     'aks_nodes': 'Kubernetes Nodes',
     'vms': 'Virtual Machines',
+    'vmss_instances': 'Scale Set Instances',
     'aci_containers': 'Container Instances',
-    'container_app_replicas': 'Container App Replicas'
+    'container_app_replicas': 'Container App Replicas',
+    'web_apps': 'Web Apps',
+    'function_apps': 'Function Apps'
 }
 
 
 class AzureHandle:
-    def __init__(self):
+    def __init__(self, cloud_name):
         # Acquire a credential object using CLI-based authentication.
         self.creds = AzureCliCredential()
+        self.cloud_name = cloud_name
+        self.base_url = CLOUDS[cloud_name].endpoints.resource_manager
+        self.credential_scopes = [self.base_url.rstrip('/') + '/.default']
+
+    @property
+    def client_args(self):
+        return {'base_url': self.base_url, 'credential_scopes': self.credential_scopes}
 
     @cached_property
     def subscriptions(self):
@@ -62,8 +84,17 @@ class AzureHandle:
         return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachineScaleSets'")
 
     def vms_resources(self, subscription_id):
-        client = self.resource_client(subscription_id)
-        return client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachines'")
+        """Yield VMs that are not members of a scale set.
+
+        Flexible-orchestration VMSS members are real ``Microsoft.Compute/virtualMachines``
+        resources and carry a ``virtual_machine_scale_set`` backreference. They are
+        already counted as scale set instances, so skipping them here stops the same
+        machine landing in both columns. Uniform-orchestration members are not VM
+        resources at all and never show up in this listing.
+        """
+        for vm in self.compute_client(subscription_id).virtual_machines.list_all():
+            if vm.virtual_machine_scale_set is None:
+                yield vm
 
     def managed_clusters(self, subscription_id):
         return self.container_client(subscription_id).managed_clusters.list()
@@ -97,6 +128,31 @@ class AzureHandle:
     def container_apps(self, subscription_id):
         """List all Container Apps in a subscription."""
         return self.container_apps_client(subscription_id).container_apps.list_by_subscription()
+
+    def app_service_sites(self, subscription_id):
+        """Return (web_apps, function_apps) for a subscription in one API pass.
+
+        ``Microsoft.Web/sites`` covers more than Web Apps and Function Apps, so we
+        classify on ``kind`` and drop two cases:
+
+        - ``workflowapp`` is a Logic App (Standard). It runs on the Functions host
+          and so carries ``functionapp,workflowapp``, but it is not a Function App
+          and ``az functionapp list`` excludes it too.
+        - ``azurecontainerapps`` is a site hosted on Azure Container Apps. Those
+          also appear in ``container_apps``, so counting them here would
+          double-count the same workload.
+        """
+        web_apps = []
+        function_apps = []
+        for site in self.web_client(subscription_id).web_apps.list():
+            kind = (site.kind or '').lower()
+            if 'workflowapp' in kind or 'azurecontainerapps' in kind:
+                continue
+            if 'functionapp' in kind:
+                function_apps.append(site)
+            else:
+                web_apps.append(site)
+        return web_apps, function_apps
 
     def container_app_running_replicas(self, container_app):
         """Return the currently running replica count for a Container App.
@@ -151,27 +207,31 @@ class AzureHandle:
 
     @lru_cache
     def compute_client(self, subscription_id):
-        return ComputeManagementClient(self.creds, subscription_id)
+        return ComputeManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_client(self, subscription_id):
-        return ContainerServiceClient(self.creds, subscription_id)
+        return ContainerServiceClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_instance_client(self, subscription_id):
-        return ContainerInstanceManagementClient(self.creds, subscription_id)
+        return ContainerInstanceManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def container_apps_client(self, subscription_id):
-        return ContainerAppsAPIClient(self.creds, subscription_id)
+        return ContainerAppsAPIClient(self.creds, subscription_id, **self.client_args)
+
+    @lru_cache
+    def web_client(self, subscription_id):
+        return WebSiteManagementClient(self.creds, subscription_id, **self.client_args)
 
     @lru_cache
     def resource_client(self, subscription_id):
-        return ResourceManagementClient(self.creds, subscription_id)
+        return ResourceManagementClient(self.creds, subscription_id, **self.client_args)
 
     @cached_property
     def subscription_client(self):
-        return SubscriptionClient(self.creds)
+        return SubscriptionClient(self.creds, **self.client_args)
 
     def filter_subscriptions(self, subscriptions, skip_list=None, include_list=None):
         """
@@ -277,14 +337,47 @@ for mod in ['azure.identity._internal.decorators', 'azure.core.pipeline.policies
     logging.getLogger(mod).setLevel(logging.WARNING)
 
 
+def resolve_cloud_name():
+    """Return the Azure cloud to target, e.g. 'AzureCloud' or 'AzureUSGovernment'.
+
+    Defaults to whatever cloud the Azure CLI is pointed at, which is already correct
+    in Cloud Shell for both commercial and Government. AZURE_CLOUD_NAME overrides it.
+    """
+    override = os.environ.get('AZURE_CLOUD_NAME')
+    if override:
+        return override.strip()
+
+    try:
+        result = subprocess.run(
+            ['az', 'cloud', 'show', '--query', 'name', '--output', 'tsv'],
+            capture_output=True, text=True, check=True, timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        log.error("Could not determine the active Azure cloud from the CLI: %s", e)
+        log.error("Set AZURE_CLOUD_NAME to one of: %s", ', '.join(sorted(CLOUDS)))
+        return None
+
+    return result.stdout.strip()
+
+
 def main():
     """Main execution function."""
     args = parse_args()
 
+    cloud_name = resolve_cloud_name()
+    if cloud_name is None:
+        return 1
+    if cloud_name not in CLOUDS:
+        log.error("Unsupported Azure cloud '%s'. Supported: %s",
+                  cloud_name, ', '.join(sorted(CLOUDS)))
+        return 1
+
     data = []
     totals = {'tenant_id': 'totals', 'subscription_id': 'totals',
-              'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
-    az = AzureHandle()
+              'aks_nodes': 0, 'vms': 0, 'vmss_instances': 0, 'aci_containers': 0,
+              'container_app_replicas': 0, 'web_apps': 0, 'function_apps': 0}
+    az = AzureHandle(cloud_name)
+    log.info("Targeting Azure cloud '%s' (ARM endpoint %s)", az.cloud_name, az.base_url)
 
     # Get all subscriptions with error handling
     try:
@@ -296,6 +389,15 @@ def main():
 
     log.info("Discovered %d subscription(s) within %d tenant(s)",
              len(all_subscriptions), len(az.tenants))
+
+    # A cloud mismatch is not an error at the API level: ARM authenticates the token
+    # and returns an empty list, so say so explicitly rather than reporting zeroes.
+    if not all_subscriptions:
+        log.error("No subscriptions are visible in cloud '%s' (ARM endpoint %s).",
+                  az.cloud_name, az.base_url)
+        log.error("If that is the wrong cloud, run 'az cloud set --name <cloud>' "
+                  "or set AZURE_CLOUD_NAME to one of: %s", ', '.join(sorted(CLOUDS)))
+        return 1
 
     # Apply filtering
     subscriptions = az.filter_subscriptions(
@@ -331,7 +433,8 @@ def main():
     # Process each subscription
     for subscription in subscriptions:
         row = {'tenant_id': subscription.tenant_id, 'subscription_id': subscription.subscription_id,
-               'aks_nodes': 0, 'vms': 0, 'aci_containers': 0, 'container_app_replicas': 0}
+               'aks_nodes': 0, 'vms': 0, 'vmss_instances': 0, 'aci_containers': 0,
+               'container_app_replicas': 0, 'web_apps': 0, 'function_apps': 0}
         log.info("Processing Azure subscription: %s (id=%s)", subscription.display_name, subscription.subscription_id)
 
         # (1) Process AKS
@@ -349,7 +452,7 @@ def main():
 
             vm_count = sum(1 for vm in az.vms_inside_vmss(vmss))
             log.info("Identified %d vm resource(s) inside Scale Set: '%s'", vm_count, vmss.name)
-            row['vms'] += vm_count
+            row['vmss_instances'] += vm_count
 
         # (3) Process ACI
         for aci in az.aci_resources(subscription.subscription_id):
@@ -374,12 +477,28 @@ def main():
             log.warning("Failed to enumerate Container Apps in subscription %s: %s",
                         subscription.subscription_id, e)
 
+        # (6) Process Web Apps and Function Apps
+        try:
+            web_apps, function_apps = az.app_service_sites(subscription.subscription_id)
+            log.info("Identified %d Web App(s) and %d Function App(s)",
+                     len(web_apps), len(function_apps))
+            row['web_apps'] += len(web_apps)
+            row['function_apps'] += len(function_apps)
+        except Exception as e:  # pylint: disable=broad-except
+            # Subscriptions without the Microsoft.Web resource provider registered will 404;
+            # log and move on rather than fail the whole run.
+            log.warning("Failed to enumerate App Service sites in subscription %s: %s",
+                        subscription.subscription_id, e)
+
         data.append(row)
 
         totals['vms'] += row['vms']
+        totals['vmss_instances'] += row['vmss_instances']
         totals['aks_nodes'] += row['aks_nodes']
         totals['aci_containers'] += row['aci_containers']
         totals['container_app_replicas'] += row['container_app_replicas']
+        totals['web_apps'] += row['web_apps']
+        totals['function_apps'] += row['function_apps']
 
     data.append(totals)
 
