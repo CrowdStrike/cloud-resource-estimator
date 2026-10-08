@@ -101,16 +101,30 @@ class AzureHandle:
         """List all Container Apps in a subscription."""
         return self.container_apps_client(subscription_id).container_apps.list_by_subscription()
 
-    def web_apps_resources(self, subscription_id):
-        """List all Web Apps in a subscription."""
-        client = self.web_client(subscription_id)
-        return client.web_apps.list()
+    def app_service_sites(self, subscription_id):
+        """Return (web_apps, function_apps) for a subscription in one API pass.
 
-    def function_apps_resources(self, subscription_id):
-        """List all Function Apps in a subscription."""
-        client = self.web_client(subscription_id)
-        # Function Apps are a subset of Web Apps with kind containing 'functionapp'
-        return [app for app in client.web_apps.list() if app.kind and 'functionapp' in app.kind.lower()]
+        ``Microsoft.Web/sites`` covers more than Web Apps and Function Apps, so we
+        classify on ``kind`` and drop two cases:
+
+        - ``workflowapp`` is a Logic App (Standard). It runs on the Functions host
+          and so carries ``functionapp,workflowapp``, but it is not a Function App
+          and ``az functionapp list`` excludes it too.
+        - ``azurecontainerapps`` is a site hosted on Azure Container Apps. Those
+          also appear in ``container_apps``, so counting them here would
+          double-count the same workload.
+        """
+        web_apps = []
+        function_apps = []
+        for site in self.web_client(subscription_id).web_apps.list():
+            kind = (site.kind or '').lower()
+            if 'workflowapp' in kind or 'azurecontainerapps' in kind:
+                continue
+            if 'functionapp' in kind:
+                function_apps.append(site)
+            else:
+                web_apps.append(site)
+        return web_apps, function_apps
 
     def container_app_running_replicas(self, container_app):
         """Return the currently running replica count for a Container App.
@@ -394,26 +408,17 @@ def main():
             log.warning("Failed to enumerate Container Apps in subscription %s: %s",
                         subscription.subscription_id, e)
 
-        # (6) Process Web Apps
+        # (6) Process Web Apps and Function Apps
         try:
-            web_apps = list(az.web_apps_resources(subscription.subscription_id))
-            # Filter out Function Apps from Web Apps count (they'll be counted separately)
-            web_apps_only = [app for app in web_apps if not (app.kind and 'functionapp' in app.kind.lower())]
-            web_app_count = len(web_apps_only)
-            log.info("Identified %d Web App(s)", web_app_count)
-            row['web_apps'] += web_app_count
+            web_apps, function_apps = az.app_service_sites(subscription.subscription_id)
+            log.info("Identified %d Web App(s) and %d Function App(s)",
+                     len(web_apps), len(function_apps))
+            row['web_apps'] += len(web_apps)
+            row['function_apps'] += len(function_apps)
         except Exception as e:  # pylint: disable=broad-except
-            log.warning("Failed to enumerate Web Apps in subscription %s: %s",
-                        subscription.subscription_id, e)
-
-        # (7) Process Function Apps
-        try:
-            function_apps = list(az.function_apps_resources(subscription.subscription_id))
-            function_app_count = len(function_apps)
-            log.info("Identified %d Function App(s)", function_app_count)
-            row['function_apps'] += function_app_count
-        except Exception as e:  # pylint: disable=broad-except
-            log.warning("Failed to enumerate Function Apps in subscription %s: %s",
+            # Subscriptions without the Microsoft.Web resource provider registered will 404;
+            # log and move on rather than fail the whole run.
+            log.warning("Failed to enumerate App Service sites in subscription %s: %s",
                         subscription.subscription_id, e)
 
         data.append(row)

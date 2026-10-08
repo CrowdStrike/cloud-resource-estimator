@@ -14,6 +14,14 @@ The Azure script counts the following resource types:
 - **Web Apps** (Azure App Service web applications)
 - **Function Apps** (Azure Functions)
 
+Two kinds of `Microsoft.Web/sites` are deliberately **not** counted:
+
+- **Logic Apps (Standard)** — these run on the Functions host and report a kind of
+  `functionapp,workflowapp`, but they are neither a Web App nor a Function App.
+- **Sites hosted on Azure Container Apps** (kind contains `azurecontainerapps`) —
+  these are already counted under Container App Replicas, so counting them again
+  would double-count the same workload.
+
 ## How to use
 
 ### Initialize execution environment
