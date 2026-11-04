@@ -17,7 +17,8 @@ Reported Resources will include a count of each of the following resource types 
 | Terminated Kubernetes Nodes | Terminated EKS Nodes |
 | Running Kubernetes Nodes | Running EKS Nodes |
 | Active EKS Fargate Profiles | Active EKS Fargate Profiles for each EKS Cluster. Excludes any existing Falcon Profiles eg. fp-falcon* |
-| ECS Service Fargate Tasks | DesiredCount of tasks in Active ECS Services.  Excludes standalone tasks or tasks that are scheduled outside of Services |
+| Running ECS Fargate Tasks | ECS tasks on Fargate currently in the RUNNING state. Includes service, standalone and capacity provider (FARGATE / FARGATE_SPOT) tasks |
+| Running ECS Fargate Containers | Containers currently in the RUNNING state across all Running ECS Fargate Tasks. Init/sidecar containers that have exited are not counted |
   
 ## 🔐 Least-Privilege IAM Policy
 
@@ -60,8 +61,8 @@ This script requires only the following read-only actions. Attach this policy to
         "eks:ListFargateProfiles",
         "eks:DescribeFargateProfile",
         "ecs:ListClusters",
-        "ecs:ListServices",
-        "ecs:DescribeServices"
+        "ecs:ListTasks",
+        "ecs:DescribeTasks"
       ],
       "Resource": "*"
     }

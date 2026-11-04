@@ -34,7 +34,8 @@ headers = {
     "kubenodes_terminated": "Terminated Kubernetes Nodes",
     "kubenodes_running": "Running Kubernetes Nodes",
     "fargate_profiles": "Active EKS Fargate Profiles",
-    "fargate_tasks": "ECS Service Fargate Tasks",
+    "fargate_tasks": "Running ECS Fargate Tasks",
+    "fargate_containers": "Running ECS Fargate Containers",
 }
 totals: Dict[str, Union[str, int]] = {
     "region": "TOTAL",
@@ -45,6 +46,7 @@ totals: Dict[str, Union[str, int]] = {
     "kubenodes_running": 0,
     "fargate_profiles": 0,
     "fargate_tasks": 0,
+    "fargate_containers": 0,
 }
 
 # Thread-safe data structures
@@ -877,28 +879,28 @@ class AWSHandle:
             self.rate_limiter.wait()
             response = client.list_clusters(maxResults=100)
             clusters = response["clusters"]
-            next_token = response.get("NextToken")
+            next_token = response.get("nextToken")
 
             while next_token:
                 self.rate_limiter.wait()
-                response = client.list_clusters(maxResults=100, NextToken=next_token)
+                response = client.list_clusters(maxResults=100, nextToken=next_token)
                 clusters += response["clusters"]
-                next_token = response.get("NextToken")
+                next_token = response.get("nextToken")
 
             profiles_count = 0
             for c in clusters:
                 self.rate_limiter.wait()
                 response = client.list_fargate_profiles(clusterName=c, maxResults=100)
                 fargate_profiles = response["fargateProfileNames"]
-                next_token = response.get("NextToken")
+                next_token = response.get("nextToken")
 
                 while next_token:
                     self.rate_limiter.wait()
                     response = client.list_fargate_profiles(
-                        clusterName=c, maxResults=100, NextToken=next_token
+                        clusterName=c, maxResults=100, nextToken=next_token
                     )
                     fargate_profiles += response["fargateProfileNames"]
-                    next_token = response.get("NextToken")
+                    next_token = response.get("nextToken")
 
                 for p in fargate_profiles:
                     if "fp-falcon" not in p:
@@ -924,39 +926,55 @@ class AWSHandle:
             self.rate_limiter.wait()
             response = client.list_clusters(maxResults=100)
             cluster_arns = response["clusterArns"]
-            next_token = response.get("NextToken")
+            next_token = response.get("nextToken")
 
             while next_token:
                 self.rate_limiter.wait()
-                response = client.list_clusters(maxResults=100, NextToken=next_token)
+                response = client.list_clusters(maxResults=100, nextToken=next_token)
                 cluster_arns += response["clusterArns"]
-                next_token = response.get("NextToken")
+                next_token = response.get("nextToken")
 
             tasks_count = 0
+            containers_count = 0
             for c in cluster_arns:
-                self.rate_limiter.wait()
-                response = client.list_services(
-                    cluster=c, maxResults=100, launchType="FARGATE"
-                )
-                service_arns = response["serviceArns"]
-                next_token = response.get("NextToken")
-
-                while next_token:
+                # ListTasks covers service, standalone and capacity provider
+                # (FARGATE / FARGATE_SPOT) tasks alike, unlike ListServices.
+                next_token = None
+                while True:
+                    kwargs = {
+                        "cluster": c,
+                        "launchType": "FARGATE",
+                        "desiredStatus": "RUNNING",
+                        "maxResults": 100,
+                    }
+                    if next_token:
+                        kwargs["nextToken"] = next_token
                     self.rate_limiter.wait()
-                    response = client.list_services(
-                        cluster=c, launchType="FARGATE", NextToken=next_token
-                    )
-                    service_arns += response["serviceArns"]
-                    next_token = response.get("NextToken")
+                    response = client.list_tasks(**kwargs)
+                    task_arns = response["taskArns"]
+                    next_token = response.get("nextToken")
 
-                for a in service_arns:
-                    self.rate_limiter.wait()
-                    response = client.describe_services(cluster=c, services=[a])
-                    for s in response["services"]:
-                        if "ACTIVE" in s["status"]:
-                            tasks_count += s["desiredCount"]
+                    # DescribeTasks accepts up to 100 ARNs, matching the page size
+                    if task_arns:
+                        self.rate_limiter.wait()
+                        response = client.describe_tasks(cluster=c, tasks=task_arns)
+                        for t in response["tasks"]:
+                            if t.get("lastStatus") != "RUNNING":
+                                continue
+                            tasks_count += 1
+                            containers_count += sum(
+                                1
+                                for ct in t.get("containers", [])
+                                if ct.get("lastStatus") == "RUNNING"
+                            )
 
-            return tasks_count
+                    if not next_token:
+                        break
+
+            return {
+                "fargate_tasks": tasks_count,
+                "fargate_containers": containers_count,
+            }
 
         return self.retry_handler.retry_with_backoff(
             get_tasks, args.max_retries, f"fargate_tasks_{aws_region}_{self.account_id}"
@@ -1054,7 +1072,7 @@ def process_fargate_tasks(aws_handle, region_name, error_collector=None):
             else:
                 print(f"Timeout processing Fargate tasks in {region_name}")
             future.cancel()
-            return 0
+            return {"fargate_tasks": 0, "fargate_containers": 0}
 
 
 def process_region(aws_handle, region_name, error_collector=None, max_workers=2):  # pylint: disable=R0912
@@ -1070,6 +1088,7 @@ def process_region(aws_handle, region_name, error_collector=None, max_workers=2)
         "kubenodes_running": 0,
         "fargate_profiles": 0,
         "fargate_tasks": 0,
+        "fargate_containers": 0,
     }
 
     try:
@@ -1110,9 +1129,10 @@ def process_region(aws_handle, region_name, error_collector=None, max_workers=2)
                     print(f"Error processing Fargate profiles in {region_name}: {e}")
 
             try:
-                row["fargate_tasks"] = fargate_tasks_future.result(
+                fargate_tasks_results = fargate_tasks_future.result(
                     timeout=args.operation_timeout
                 )
+                row.update(fargate_tasks_results)
             except Exception as e:
                 if error_collector:
                     error_collector.add_processing_error(
@@ -1141,6 +1161,7 @@ def process_region(aws_handle, region_name, error_collector=None, max_workers=2)
             "kubenodes_running",
             "fargate_profiles",
             "fargate_tasks",
+            "fargate_containers",
         ]:
             totals[k] += row[k]
 
