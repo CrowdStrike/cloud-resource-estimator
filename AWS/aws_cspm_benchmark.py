@@ -906,7 +906,7 @@ class AWSHandle:
                         response = client.describe_fargate_profile(
                             clusterName=c, fargateProfileName=p
                         )
-                        if "ACTIVE" in response["fargateProfile"]["status"]:
+                        if response["fargateProfile"]["status"] == "ACTIVE":
                             profiles_count += 1
 
             return profiles_count
@@ -953,7 +953,7 @@ class AWSHandle:
                     self.rate_limiter.wait()
                     response = client.describe_services(cluster=c, services=[a])
                     for s in response["services"]:
-                        if "ACTIVE" in s["status"]:
+                        if s["status"] == "ACTIVE":
                             tasks_count += s["desiredCount"]
 
             return tasks_count
